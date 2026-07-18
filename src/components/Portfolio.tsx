@@ -316,7 +316,7 @@ export default function Portfolio({ user, assets, transactions, onAddAsset, onUp
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.1 }}
                 className="bg-white rounded-2xl p-4 shadow-[0px_4px_20px_rgba(0,0,0,0.02)] border border-gray-100 flex items-center justify-between hover:bg-gray-50/50 transition-colors cursor-pointer"
-                onClick={() => alert(`Asset detailed performance metric:\nTicker: ${asset.ticker}\nHolding type: ${asset.type}\nAllocation contribution: ${asset.allocationPercent}%\nTotal Value: ${formatValue(asset.value)}`)}
+                onClick={() => handleOpenModal(asset)}
               >
                 <div className="flex items-center gap-3.5">
                   <div className="w-11 h-11 rounded-xl bg-surface-container flex items-center justify-center shadow-sm">
@@ -417,8 +417,12 @@ export default function Portfolio({ user, assets, transactions, onAddAsset, onUp
                       required
                       value={formData.value === undefined ? "" : formData.value}
                       onChange={e => {
-                        const val = parseFloat(e.target.value);
-                        setFormData({...formData, value: isNaN(val) ? 0 : val});
+                        const rawVal = e.target.value;
+                        if (rawVal === "") {
+                          setFormData({...formData, value: "" as any});
+                        } else {
+                          setFormData({...formData, value: parseFloat(rawVal)});
+                        }
                       }}
                       placeholder="0"
                       className="w-full bg-transparent px-2 py-3 text-sm font-semibold text-on-surface outline-none tabular-nums"

@@ -80,7 +80,15 @@ export default function App() {
       const data = await loadUserDataFromFirestore(uid, email);
       setUser(data.user);
       setTransactions(data.transactions);
-      setAssets(data.assets);
+      
+      // Compute allocations dynamically to prevent missing/NaN percent
+      const totalAssetVal = data.assets.reduce((acc, a) => acc + (a.value || 0), 0);
+      const computedAssets = data.assets.map(asset => ({
+        ...asset,
+        allocationPercent: totalAssetVal > 0 ? Math.round(((asset.value || 0) / totalAssetVal) * 100) : 0
+      }));
+      setAssets(computedAssets);
+      
       setBudget(data.budget);
       setScenarios(data.scenarios);
       setLoggedInEmail(email);
@@ -382,6 +390,7 @@ export default function App() {
               setAddTxDefaultType(type);
               setIsAddTransactionOpen(true);
             }}
+            assets={assets}
           />
         );
       case "portfolio":

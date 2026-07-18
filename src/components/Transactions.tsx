@@ -7,7 +7,7 @@ import React, { useState, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { t } from "../i18n";
 import { Search, SlidersHorizontal, ReceiptText, ArrowRight, X, Coffee, Home, Briefcase, CreditCard, ChevronRight, CheckCircle, AlertCircle, ShoppingBag, Car, FileUp, Plus, Minus, Save } from "lucide-react";
-import { Transaction, User } from "../types";
+import { Transaction, User, Asset } from "../types";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import { preprocessReceiptImage } from "../utils/imagePreprocessor";
 
@@ -16,6 +16,7 @@ interface TransactionsProps {
   transactions: Transaction[];
   onAddTransaction: (tx: Omit<Transaction, "id">) => void;
   onUpdateTransaction: (tx: Transaction) => void;
+  onDeleteTransaction: (txId: string) => void;
   onOpenAddTransaction: (type: "income" | "expense") => void;
   assets: Asset[];
 }
@@ -45,6 +46,7 @@ export default function Transactions({
   const [editMerchant, setEditMerchant] = useState("");
   const [editAmount, setEditAmount] = useState("");
   const [editCategory, setEditCategory] = useState("");
+  const [editType, setEditType] = useState<"income" | "expense">("expense");
   const [editDate, setEditDate] = useState("");
   const [editTime, setEditTime] = useState("");
   const [editAccountId, setEditAccountId] = useState("");
@@ -261,7 +263,7 @@ export default function Transactions({
       });
 
       if (!response.ok) {
-        const errData = await response.json();
+        const errData = await response.json().catch(() => ({}));
         if (response.status === 503 || errData.isFallback) {
           triggerDemoScanning("Real server API is not configured (missing key). Running offline local AI analyzer demo instead...");
           return;
