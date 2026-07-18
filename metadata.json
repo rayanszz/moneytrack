@@ -1,0 +1,6 @@
+{
+  "name": "Moneytrack",
+  "description": "Professional personal finance dashboard and portfolio tracker with AI-powered receipt scanning, asset allocation analytics, interactive compound growth forecasts, and profile settings.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
