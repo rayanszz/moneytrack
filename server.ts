@@ -12,6 +12,7 @@ import rateLimit from "express-rate-limit";
 dotenv.config();
 
 const app = express();
+app.set("trust proxy", 1); // Trust first proxy for correct IP rate limiting
 const PORT = 3000;
 
 // Rate limiting for the AI endpoint
@@ -57,16 +58,16 @@ app.post("/api/scan-receipt", scanLimiter, async (req, res) => {
       });
     }
 
-    // Clean base64 string
-    const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "");
+    // Clean base64 string to support any mimetype (e.g. data:application/pdf;base64,...)
+    const base64Data = imageBase64.replace(/^data:[^,]+,/, "");
 
-    const prompt = "Analyze this receipt, invoice, or bill image. Extract the following details: " +
-      "1. Merchant or store name (string)" +
-      "2. Total amount (positive float number) " +
-      "3. Category (must be one of: 'Food & Dining', 'Rent', 'Salary', 'Shopping', 'Travel', 'Utilities', 'Miscellaneous')" +
-      "4. Date in YYYY-MM-DD format (or fallback to today if not clear)" +
-      "5. Time in HH:MM AM/PM format" +
-      "6. Payment method used (e.g. 'Chase Visa', 'Amex Platinum', 'Cash', 'Checking Acct')" +
+    const prompt = "Analyze this receipt, invoice, or bill image. Extract the following details carefully: " +
+      "1. Merchant or store name (string) " +
+      "2. Final Total amount after tax and discounts (positive float number only) " +
+      "3. Category (must be one of: 'Food & Dining', 'Rent', 'Salary', 'Shopping', 'Travel', 'Utilities', 'Miscellaneous') " +
+      "4. Date in YYYY-MM-DD format. Convert local or strange dates into this format (e.g. 24/Mei/26 -> 2026-05-24). If not found, use today's date. " +
+      "5. Time in HH:MM AM/PM format " +
+      "6. Payment method used (e.g. 'Cash', 'Debit', 'Credit Card', 'E-Wallet', 'Qris') " +
       "7. A brief list of item descriptions (array of strings)";
 
     console.log("Calling Gemini API model gemini-2.5-flash for OCR...");

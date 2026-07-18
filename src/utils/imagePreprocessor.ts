@@ -14,8 +14,8 @@
  */
 export const preprocessReceiptImage = (
   file: File,
-  maxWidth = 1000,
-  maxHeight = 1000
+  maxWidth = 2048,
+  maxHeight = 2048
 ): Promise<{ base64: string; width: number; height: number; originalSize: number; compressedSize: number }> => {
   return new Promise((resolve, reject) => {
     const originalSize = file.size;
@@ -47,27 +47,12 @@ export const preprocessReceiptImage = (
         const ctx = canvas.getContext("2d");
         
         if (ctx) {
-          // Apply computer vision-like preprocessing filters
-          // 1. Convert to grayscale to remove color noise/chromatic aberration
-          // 2. Boost contrast to make the text darker and background whiter
-          // 3. Slightly increase brightness to wash out shadow gradients
-          try {
-            ctx.filter = "grayscale(100%) contrast(140%) brightness(105%)";
-            ctx.drawImage(img, 0, 0, width, height);
-          } catch (e) {
-            console.warn("Canvas filter not fully supported on this browser or threw an error on drawImage, falling back to standard draw", e);
-            try {
-              // Reset filter to avoid active state issues
-              ctx.filter = "none";
-            } catch (err) {
-              // Ignore if filter property itself is completely unsupported
-            }
-            ctx.drawImage(img, 0, 0, width, height);
-          }
+          // Render image naturally without destructive filters
+          ctx.drawImage(img, 0, 0, width, height);
         }
 
-        // Compress as JPEG at 0.65 quality (optimal balance of file size & legible text for OCR)
-        const base64 = canvas.toDataURL("image/jpeg", 0.65);
+        // Compress as JPEG at 0.85 quality (high clarity for OCR)
+        const base64 = canvas.toDataURL("image/jpeg", 0.85);
         
         // Calculate compressed size in bytes (approximate from base64 length)
         const compressedSize = Math.round((base64.length * 3) / 4);
