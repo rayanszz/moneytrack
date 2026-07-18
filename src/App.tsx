@@ -24,6 +24,8 @@ import {
   loadUserDataFromFirestore, 
   saveUserSettingToFirestore, 
   addTransactionToFirestore, 
+  updateTransactionInFirestore,
+  deleteTransactionFromFirestore,
   updateAssetInFirestore,
   deleteAssetFromFirestore,
   addScenarioToFirestore,
@@ -159,6 +161,105 @@ export default function App() {
     setAssets(fullyUpdatedAssets);
   };
 
+  // Update Transaction Handler
+  const handleUpdateTransaction = async (updatedTx: Transaction) => {
+    if (!user || !userId) return;
+
+    // Find the old transaction to compute differential values
+    const oldTx = transactions.find(t => t.id === updatedTx.id);
+    if (!oldTx) return;
+
+    // Replace the transaction in local state
+    const updatedTxs = transactions.map(t => t.id === updatedTx.id ? updatedTx : t);
+    setTransactions(updatedTxs);
+
+    // Save to Firestore
+    await updateTransactionInFirestore(userId, updatedTx);
+
+    // Calculate budget adjustment
+    let updatedBudget = { ...budget };
+    const oldExpenseAmt = oldTx.type === "expense" ? Math.abs(oldTx.amount) : 0;
+    const newExpenseAmt = updatedTx.type === "expense" ? Math.abs(updatedTx.amount) : 0;
+    const diffExpense = newExpenseAmt - oldExpenseAmt;
+
+    if (diffExpense !== 0) {
+      updatedBudget.spent = Math.max(0, Math.min(budget.spent + diffExpense, budget.limit));
+      setBudget(updatedBudget);
+      await saveUserSettingToFirestore(userId, user, updatedBudget);
+    }
+
+    // Calculate cash asset adjustment
+    const oldCashEffect = oldTx.type === "income" ? Math.abs(oldTx.amount) : -Math.abs(oldTx.amount);
+    const newCashEffect = updatedTx.type === "income" ? Math.abs(updatedTx.amount) : -Math.abs(updatedTx.amount);
+    const diffCash = newCashEffect - oldCashEffect;
+
+    const updatedAssets = [...assets];
+    let cashAsset = updatedAssets.find(a => a.type === "Cash");
+    if (cashAsset && diffCash !== 0) {
+      const newCashValue = Math.max(0, cashAsset.value + diffCash);
+      cashAsset.value = newCashValue;
+    }
+
+    // Recompute total allocations percentages
+    const totalAssetVal = updatedAssets.reduce((acc, a) => acc + a.value, 0);
+    const fullyUpdatedAssets = updatedAssets.map(asset => {
+      const newAllocation = totalAssetVal > 0 ? Math.round((asset.value / totalAssetVal) * 100) : 0;
+      if (asset.allocationPercent !== newAllocation || (cashAsset && asset.id === cashAsset.id)) {
+        const updatedAsset = { ...asset, allocationPercent: newAllocation };
+        updateAssetInFirestore(userId, updatedAsset).catch(console.error);
+        return updatedAsset;
+      }
+      return asset;
+    });
+    setAssets(fullyUpdatedAssets);
+  };
+
+  // Delete Transaction Handler
+  const handleDeleteTransaction = async (txId: string) => {
+    if (!user || !userId) return;
+
+    // Find the transaction to reverse its effect
+    const txToDelete = transactions.find(t => t.id === txId);
+    if (!txToDelete) return;
+
+    // Remove from local state
+    const updatedTxs = transactions.filter(t => t.id !== txId);
+    setTransactions(updatedTxs);
+
+    // Delete from Firestore
+    await deleteTransactionFromFirestore(userId, txId);
+
+    // Update dynamic budget spent if it's an expense
+    let updatedBudget = { ...budget };
+    if (txToDelete.type === "expense") {
+      updatedBudget.spent = Math.max(0, budget.spent - Math.abs(txToDelete.amount));
+      setBudget(updatedBudget);
+      await saveUserSettingToFirestore(userId, user, updatedBudget);
+    }
+
+    // Revert Cash Asset value
+    const updatedAssets = [...assets];
+    let cashAsset = updatedAssets.find(a => a.type === "Cash");
+    if (cashAsset) {
+      const reversedAmount = txToDelete.type === "income" ? -Math.abs(txToDelete.amount) : Math.abs(txToDelete.amount);
+      const newCashValue = Math.max(0, cashAsset.value + reversedAmount);
+      cashAsset.value = newCashValue;
+    }
+
+    // Recompute total allocations percentages
+    const totalAssetVal = updatedAssets.reduce((acc, a) => acc + a.value, 0);
+    const fullyUpdatedAssets = updatedAssets.map(asset => {
+      const newAllocation = totalAssetVal > 0 ? Math.round((asset.value / totalAssetVal) * 100) : 0;
+      if (asset.allocationPercent !== newAllocation || (cashAsset && asset.id === cashAsset.id)) {
+        const updatedAsset = { ...asset, allocationPercent: newAllocation };
+        updateAssetInFirestore(userId, updatedAsset).catch(console.error);
+        return updatedAsset;
+      }
+      return asset;
+    });
+    setAssets(fullyUpdatedAssets);
+  };
+
   // Asset Handlers
   const handleAddAsset = async (newAsset: Omit<Asset, "id">) => {
     if (!user || !userId) return;
@@ -269,6 +370,8 @@ export default function App() {
             user={user}
             transactions={transactions}
             onAddTransaction={handleAddTransaction}
+            onUpdateTransaction={handleUpdateTransaction}
+            onDeleteTransaction={handleDeleteTransaction}
             onOpenAddTransaction={(type) => {
               setAddTxDefaultType(type);
               setIsAddTransactionOpen(true);

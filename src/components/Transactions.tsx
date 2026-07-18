@@ -6,7 +6,7 @@
 import React, { useState, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { t } from "../i18n";
-import { Search, SlidersHorizontal, ReceiptText, ArrowRight, X, Coffee, Home, Briefcase, CreditCard, ChevronRight, CheckCircle, AlertCircle, ShoppingBag, Car, FileUp, Plus } from "lucide-react";
+import { Search, SlidersHorizontal, ReceiptText, ArrowRight, X, Coffee, Home, Briefcase, CreditCard, ChevronRight, CheckCircle, AlertCircle, ShoppingBag, Car, FileUp, Plus, Minus, Save } from "lucide-react";
 import { Transaction, User } from "../types";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import { preprocessReceiptImage } from "../utils/imagePreprocessor";
@@ -15,10 +15,19 @@ interface TransactionsProps {
   user: User;
   transactions: Transaction[];
   onAddTransaction: (tx: Omit<Transaction, "id">) => void;
+  onUpdateTransaction: (tx: Transaction) => void;
+  onDeleteTransaction: (txId: string) => void;
   onOpenAddTransaction: (type: "income" | "expense") => void;
 }
 
-export default function Transactions({ user, transactions, onAddTransaction, onOpenAddTransaction }: TransactionsProps) {
+export default function Transactions({ 
+  user, 
+  transactions, 
+  onAddTransaction, 
+  onUpdateTransaction, 
+  onDeleteTransaction, 
+  onOpenAddTransaction 
+}: TransactionsProps) {
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState<"All" | "Income" | "Expense">("All");
   const [showScanner, setShowScanner] = useState(false);
@@ -29,6 +38,66 @@ export default function Transactions({ user, transactions, onAddTransaction, onO
   const [scanError, setScanError] = useState("");
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Editing transaction states
+  const [editingTx, setEditingTx] = useState<Transaction | null>(null);
+  const [editMerchant, setEditMerchant] = useState("");
+  const [editAmount, setEditAmount] = useState("");
+  const [editCategory, setEditCategory] = useState("");
+  const [editType, setEditType] = useState<"income" | "expense">("expense");
+  const [editDate, setEditDate] = useState("");
+  const [editTime, setEditTime] = useState("");
+  const [editPaymentMethod, setEditPaymentMethod] = useState("");
+  const [editNotes, setEditNotes] = useState("");
+
+  const startEditingTx = (tx: Transaction) => {
+    setEditingTx(tx);
+    setEditMerchant(tx.merchant);
+    setEditAmount(Math.abs(tx.amount).toString());
+    setEditCategory(tx.category);
+    setEditType(tx.type);
+    setEditDate(tx.date);
+    setEditTime(tx.time);
+    setEditPaymentMethod(tx.paymentMethod);
+    setEditNotes(tx.notes || "");
+  };
+
+  const handleEditSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTx) return;
+
+    onUpdateTransaction({
+      ...editingTx,
+      merchant: editMerchant,
+      amount: editType === "income" ? Math.abs(Number(editAmount)) : -Math.abs(Number(editAmount)),
+      category: editCategory,
+      type: editType,
+      date: editDate,
+      time: editTime,
+      paymentMethod: editPaymentMethod,
+      notes: editNotes.trim() || undefined
+    });
+
+    setEditingTx(null);
+  };
+
+  const handleDeleteClick = () => {
+    if (!editingTx) return;
+    const confirmMsg = user.language === "Indonesia" 
+      ? "Apakah Anda yakin ingin menghapus transaksi ini?" 
+      : "Are you sure you want to delete this transaction?";
+    
+    if (window.confirm(confirmMsg)) {
+      onDeleteTransaction(editingTx.id);
+      setEditingTx(null);
+    }
+  };
+
+  const editCategories = editType === "income"
+    ? ["Salary", "Investments", "Gifts", "Miscellaneous"]
+    : ["Food & Dining", "Rent", "Travel", "Shopping", "Utilities", "Miscellaneous"];
+
+  const paymentMethods = ["Chase Visa", "Amex Platinum", "Checking Acct", "Cash"];
 
   // Calculations for charts
   const { totalIncome, totalExpense, expenseData } = React.useMemo(() => {
@@ -516,11 +585,7 @@ export default function Transactions({ user, transactions, onAddTransaction, onO
                   <div 
                     key={tx.id}
                     className="flex items-center justify-between p-3.5 hover:bg-gray-50/50 rounded-2xl transition-colors cursor-pointer group"
-                    onClick={() => {
-                      if (tx.notes || tx.items) {
-                        alert(`Transaction details:\nMerchant: ${tx.merchant}\nCategory: ${tx.category}\nPayment: ${tx.paymentMethod}\nTime: ${tx.time}\nNotes: ${tx.notes || "None"}\nItems: ${tx.items?.join(", ") || "None"}`);
-                      }
-                    }}
+                    onClick={() => startEditingTx(tx)}
                   >
                     <div className="flex items-center gap-4">
                       <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${getCategoryBg(tx.category)}`}>
@@ -686,6 +751,203 @@ export default function Transactions({ user, transactions, onAddTransaction, onO
                   </motion.div>
                 )}
               </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* EDITING MODAL */}
+      <AnimatePresence>
+        {editingTx && (
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl border border-gray-100"
+            >
+              {/* Header */}
+              <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                <h3 className="text-lg font-bold text-primary flex items-center gap-1.5">
+                  <CreditCard className="w-5 h-5" />
+                  <span>{user.language === "Indonesia" ? "Edit Transaksi" : "Edit Transaction"}</span>
+                </h3>
+                <button 
+                  onClick={() => setEditingTx(null)}
+                  className="p-1.5 rounded-full hover:bg-gray-200 text-outline hover:text-on-surface transition-colors focus:outline-none"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Form body */}
+              <form onSubmit={handleEditSubmit} className="p-6 space-y-4">
+                
+                {/* Type selector toggle */}
+                <div className="flex gap-2 p-1 bg-[#F3F4F6] rounded-xl select-none">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditType("expense");
+                      setEditCategory("");
+                    }}
+                    className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1 focus:outline-none cursor-pointer ${
+                      editType === "expense" ? "bg-white text-red-600 shadow-sm" : "text-outline hover:text-on-surface"
+                    }`}
+                  >
+                    <Minus className="w-3.5 h-3.5" />
+                    <span>{t(user.language, "expense")}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditType("income");
+                      setEditCategory("");
+                    }}
+                    className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1 focus:outline-none cursor-pointer ${
+                      editType === "income" ? "bg-white text-primary shadow-sm" : "text-outline hover:text-on-surface"
+                    }`}
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>{t(user.language, "income")}</span>
+                  </button>
+                </div>
+
+                {/* Merchant / Description */}
+                <div>
+                  <label className="text-xs font-bold text-outline uppercase tracking-wider mb-1 block ml-0.5">
+                    {user.language === "Indonesia" ? "Nama Merchant / Penerima" : "Merchant / Payee"}
+                  </label>
+                  <input 
+                    type="text"
+                    required
+                    placeholder="e.g. Starbucks, Salary Deposit"
+                    value={editMerchant}
+                    onChange={(e) => setEditMerchant(e.target.value)}
+                    className="w-full bg-[#F3F4F6] text-on-surface rounded-xl px-4 py-2.5 border-none focus:ring-2 focus:ring-primary focus:bg-white focus:outline-none transition-all text-sm font-medium"
+                  />
+                </div>
+
+                {/* Amount */}
+                <div>
+                  <label className="text-xs font-bold text-outline uppercase tracking-wider mb-1 block ml-0.5">
+                    {user.language === "Indonesia" ? `Jumlah (${user.currency})` : `Amount (${user.currency})`}
+                  </label>
+                  <div className="flex items-center bg-[#F3F4F6] rounded-xl focus-within:ring-2 focus-within:ring-primary focus-within:bg-white transition-all overflow-hidden">
+                    <span className="pl-4 font-bold text-outline select-none">{user.currency === 'IDR' ? 'Rp' : '$'}</span>
+                    <input 
+                      type="text"
+                      required
+                      placeholder="0"
+                      value={editAmount === "" || editAmount === "0" ? "" : new Intl.NumberFormat(user.currency === 'IDR' ? 'id-ID' : 'en-US').format(Number(editAmount))}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value.replace(/\D/g, ''));
+                        setEditAmount(isNaN(val) ? "" : val.toString());
+                      }}
+                      className="w-full bg-transparent px-3 py-2.5 border-none focus:outline-none text-sm font-bold tracking-tight"
+                    />
+                  </div>
+                </div>
+
+                {/* Date and Time */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-bold text-outline uppercase tracking-wider mb-1 block ml-0.5">
+                      {user.language === "Indonesia" ? "Tanggal" : "Date"}
+                    </label>
+                    <input 
+                      type="date"
+                      required
+                      value={editDate}
+                      onChange={(e) => setEditDate(e.target.value)}
+                      className="w-full bg-[#F3F4F6] text-on-surface rounded-xl px-3 py-2 border-none focus:ring-2 focus:ring-primary focus:bg-white focus:outline-none transition-all text-xs font-bold"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-outline uppercase tracking-wider mb-1 block ml-0.5">
+                      {user.language === "Indonesia" ? "Waktu" : "Time"}
+                    </label>
+                    <input 
+                      type="text"
+                      required
+                      value={editTime}
+                      onChange={(e) => setEditTime(e.target.value)}
+                      placeholder="12:00 PM"
+                      className="w-full bg-[#F3F4F6] text-on-surface rounded-xl px-3 py-2.5 border-none focus:ring-2 focus:ring-primary focus:bg-white focus:outline-none transition-all text-xs font-bold"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Category */}
+                  <div>
+                    <label className="text-xs font-bold text-outline uppercase tracking-wider mb-1 block ml-0.5">
+                      {t(user.language, "category")}
+                    </label>
+                    <select
+                      required
+                      value={editCategory}
+                      onChange={(e) => setEditCategory(e.target.value)}
+                      className="w-full bg-[#F3F4F6] text-on-surface rounded-xl px-3 py-2.5 border-none focus:ring-2 focus:ring-primary focus:bg-white focus:outline-none transition-all text-xs font-bold"
+                    >
+                      <option value="" disabled>Choose...</option>
+                      {editCategories.map(cat => (
+                        <option key={cat} value={cat}>{cat}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Payment Method */}
+                  <div>
+                    <label className="text-xs font-bold text-outline uppercase tracking-wider mb-1 block ml-0.5">
+                      {t(user.language, "paymentMethod")}
+                    </label>
+                    <select
+                      required
+                      value={editPaymentMethod}
+                      onChange={(e) => setEditPaymentMethod(e.target.value)}
+                      className="w-full bg-[#F3F4F6] text-on-surface rounded-xl px-3 py-2.5 border-none focus:ring-2 focus:ring-primary focus:bg-white focus:outline-none transition-all text-xs font-bold"
+                    >
+                      {paymentMethods.map(pm => (
+                        <option key={pm} value={pm}>{pm}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Notes */}
+                <div>
+                  <label className="text-xs font-bold text-outline uppercase tracking-wider mb-1 block ml-0.5">
+                    {t(user.language, "notes")}
+                  </label>
+                  <textarea 
+                    placeholder="Additional transaction info..."
+                    rows={2}
+                    value={editNotes}
+                    onChange={(e) => setEditNotes(e.target.value)}
+                    className="w-full bg-[#F3F4F6] text-on-surface rounded-xl px-4 py-2 border-none focus:ring-2 focus:ring-primary focus:bg-white focus:outline-none transition-all text-xs font-medium resize-none"
+                  />
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-3 pt-2">
+                  <button 
+                    type="button"
+                    onClick={handleDeleteClick}
+                    className="flex-1 bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold py-3.5 rounded-xl flex items-center justify-center gap-1.5 transition-all text-xs border border-rose-100 cursor-pointer"
+                  >
+                    <span>{user.language === "Indonesia" ? "Hapus" : "Delete"}</span>
+                  </button>
+
+                  <button 
+                    type="submit"
+                    className="flex-1 bg-primary hover:bg-primary-container text-white font-bold py-3.5 rounded-xl flex items-center justify-center gap-1.5 transition-all text-sm cursor-pointer"
+                  >
+                    <Save className="w-4 h-4" />
+                    <span>{t(user.language, "save")}</span>
+                  </button>
+                </div>
+              </form>
             </motion.div>
           </div>
         )}

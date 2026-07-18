@@ -5,8 +5,8 @@
 
 import React, { useState } from "react";
 import { motion } from "motion/react";
-import { Eye, EyeOff, TrendingUp, ArrowUp, ArrowDown, CreditCard, Coffee, Home, Briefcase, Plus, Minus, ReceiptText, ArrowRightLeft, ShoppingBag, Car } from "lucide-react";
-import { Transaction, Budget, User, Asset } from "../types";
+import { Eye, EyeOff, TrendingUp, ArrowUp, ArrowDown, CreditCard, Coffee, Home, Briefcase, Plus, Minus, ReceiptText, ArrowRightLeft, ShoppingBag, Car, Trash2, PlusCircle } from "lucide-react";
+import { Transaction, Budget, User, Asset, SubBudget } from "../types";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { t } from "../i18n";
 
@@ -24,7 +24,7 @@ export default function Dashboard({ user, transactions, budget, assets, onNaviga
   const [showBalance, setShowBalance] = useState(true);
   const [isEditingBudget, setIsEditingBudget] = useState(false);
   const [budgetInput, setBudgetInput] = useState(budget.limit.toString());
-  const [subBudgetInputs, setSubBudgetInputs] = useState<{ [key: string]: string }>({});
+  const [editableSubBudgets, setEditableSubBudgets] = useState<SubBudget[]>([]);
 
   const defaultSubBudgetsList = [
     { category: "Food & Dining", limit: Math.round(budget.limit * 0.2) },
@@ -47,12 +47,31 @@ export default function Dashboard({ user, transactions, budget, assets, onNaviga
 
   const startEditingBudget = () => {
     setBudgetInput(budget.limit.toString());
-    const initialInputs: { [key: string]: string } = {};
-    subBudgets.forEach(sb => {
-      initialInputs[sb.category] = sb.limit.toString();
-    });
-    setSubBudgetInputs(initialInputs);
+    setEditableSubBudgets(
+      subBudgets.map(sb => ({ category: sb.category, limit: sb.limit }))
+    );
     setIsEditingBudget(true);
+  };
+
+  const handleAddSubBudget = () => {
+    setEditableSubBudgets([
+      ...editableSubBudgets,
+      { category: "", limit: 0 }
+    ]);
+  };
+
+  const handleUpdateSubBudget = (index: number, fields: Partial<SubBudget>) => {
+    const updated = editableSubBudgets.map((sb, i) => {
+      if (i === index) {
+        return { ...sb, ...fields };
+      }
+      return sb;
+    });
+    setEditableSubBudgets(updated);
+  };
+
+  const handleDeleteSubBudget = (index: number) => {
+    setEditableSubBudgets(editableSubBudgets.filter((_, i) => i !== index));
   };
 
   const getCategoryLabel = (cat: string) => {
@@ -154,18 +173,17 @@ export default function Dashboard({ user, transactions, budget, assets, onNaviga
     e.preventDefault();
     const totalVal = Number(budgetInput);
     if (!isNaN(totalVal) && totalVal > 0) {
-      const updatedSubBudgets = subBudgets.map(sb => {
-        const valStr = subBudgetInputs[sb.category];
-        const val = valStr !== undefined && valStr !== "" ? Number(valStr) : sb.limit;
-        return {
-          category: sb.category,
-          limit: !isNaN(val) && val > 0 ? val : sb.limit
-        };
-      });
+      const finalSubBudgets = editableSubBudgets
+        .filter(sb => sb.category.trim() !== "")
+        .map(sb => ({
+          category: sb.category.trim(),
+          limit: Math.max(0, Number(sb.limit))
+        }));
+
       onUpdateBudget({
         limit: totalVal,
         spent: budget.spent,
-        subBudgets: updatedSubBudgets
+        subBudgets: finalSubBudgets
       });
       setIsEditingBudget(false);
     }
@@ -299,32 +317,63 @@ export default function Dashboard({ user, transactions, budget, assets, onNaviga
 
               <div className="border-t border-gray-200/65 pt-3">
                 <span className="text-xs font-bold text-primary block mb-2">
-                  {user.language === "Indonesia" ? "Batas Sub Anggaran Kategori" : "Category Sub-Budget Limits"}
+                  {user.language === "Indonesia" ? "Batas Sub Anggaran Kategori (Kustom)" : "Category Sub-Budget Limits (Custom)"}
                 </span>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {subBudgets.map(sb => (
-                    <div key={sb.category} className="space-y-1">
-                      <label className="text-[11px] font-semibold text-on-surface-variant block">
-                        {getCategoryLabel(sb.category)}
-                      </label>
-                      <div className="flex items-center bg-white border border-gray-200 rounded-lg focus-within:border-primary transition-colors overflow-hidden">
-                        <span className="pl-2.5 font-bold text-outline text-xs select-none">{user.currency === 'IDR' ? 'Rp' : '$'}</span>
+                
+                <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
+                  {editableSubBudgets.map((sb, idx) => (
+                    <div key={idx} className="flex gap-2 items-end bg-white p-2.5 rounded-xl border border-gray-150 relative">
+                      <div className="flex-1 space-y-1">
+                        <label className="text-[10px] font-bold text-outline block">
+                          {user.language === "Indonesia" ? "Nama Kategori" : "Category Name"}
+                        </label>
                         <input
                           type="text"
-                          value={subBudgetInputs[sb.category] === undefined ? "" : subBudgetInputs[sb.category] === "" ? "" : new Intl.NumberFormat(user.currency === 'IDR' ? 'id-ID' : 'en-US').format(Number(subBudgetInputs[sb.category]))}
-                          onChange={e => {
-                            const val = parseInt(e.target.value.replace(/\D/g, ''));
-                            setSubBudgetInputs({
-                              ...subBudgetInputs,
-                              [sb.category]: isNaN(val) ? "" : val.toString()
-                            });
-                          }}
-                          className="w-full bg-transparent px-2 py-1 text-xs font-semibold outline-none tabular-nums"
-                          placeholder="Category limit..."
+                          required
+                          value={sb.category}
+                          onChange={e => handleUpdateSubBudget(idx, { category: e.target.value })}
+                          className="w-full bg-[#F3F4F6] text-on-surface rounded-lg px-2.5 py-1.5 text-xs font-semibold outline-none border-none focus:ring-1 focus:ring-primary focus:bg-white"
+                          placeholder="e.g. Food & Dining"
                         />
                       </div>
+                      <div className="w-28 sm:w-32 space-y-1">
+                        <label className="text-[10px] font-bold text-outline block">
+                          {user.language === "Indonesia" ? "Batas Limit" : "Limit"}
+                        </label>
+                        <div className="flex items-center bg-[#F3F4F6] rounded-lg focus-within:ring-1 focus-within:ring-primary focus-within:bg-white transition-all overflow-hidden">
+                          <span className="pl-2 font-bold text-outline text-[11px] select-none">{user.currency === 'IDR' ? 'Rp' : '$'}</span>
+                          <input
+                            type="text"
+                            required
+                            value={sb.limit === 0 ? "" : new Intl.NumberFormat(user.currency === 'IDR' ? 'id-ID' : 'en-US').format(sb.limit)}
+                            onChange={e => {
+                              const val = parseInt(e.target.value.replace(/\D/g, ''));
+                              handleUpdateSubBudget(idx, { limit: isNaN(val) ? 0 : val });
+                            }}
+                            className="w-full bg-transparent px-1.5 py-1.5 text-xs font-semibold outline-none tabular-nums"
+                            placeholder="0"
+                          />
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteSubBudget(idx)}
+                        className="p-2 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 transition-colors border border-red-100 cursor-pointer flex items-center justify-center"
+                        title={user.language === "Indonesia" ? "Hapus" : "Delete"}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   ))}
+                  
+                  <button
+                    type="button"
+                    onClick={handleAddSubBudget}
+                    className="w-full py-2 border-2 border-dashed border-gray-200 hover:border-primary text-gray-400 hover:text-primary rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer text-xs font-bold bg-white"
+                  >
+                    <PlusCircle className="w-4 h-4" />
+                    <span>{user.language === "Indonesia" ? "Tambah Sub Anggaran" : "Add Sub-budget"}</span>
+                  </button>
                 </div>
               </div>
 

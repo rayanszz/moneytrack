@@ -97,6 +97,18 @@ export async function addTransactionToFirestore(userId: string, tx: Transaction)
   await setDoc(ref, data);
 }
 
+export async function updateTransactionInFirestore(userId: string, tx: Transaction) {
+  const { id, ...data } = tx;
+  const ref = doc(collection(db, "users", userId, "transactions"), id);
+  await setDoc(ref, data, { merge: true });
+}
+
+export async function deleteTransactionFromFirestore(userId: string, txId: string) {
+  const { deleteDoc } = await import("firebase/firestore");
+  const ref = doc(collection(db, "users", userId, "transactions"), txId);
+  await deleteDoc(ref);
+}
+
 export async function updateAssetInFirestore(userId: string, asset: Asset) {
   const { id, ...data } = asset;
   const ref = doc(collection(db, "users", userId, "assets"), id);

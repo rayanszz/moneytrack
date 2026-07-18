@@ -53,11 +53,17 @@ export const preprocessReceiptImage = (
           // 3. Slightly increase brightness to wash out shadow gradients
           try {
             ctx.filter = "grayscale(100%) contrast(140%) brightness(105%)";
+            ctx.drawImage(img, 0, 0, width, height);
           } catch (e) {
-            console.warn("Canvas filter not supported on this browser, drawing normally");
+            console.warn("Canvas filter not fully supported on this browser or threw an error on drawImage, falling back to standard draw", e);
+            try {
+              // Reset filter to avoid active state issues
+              ctx.filter = "none";
+            } catch (err) {
+              // Ignore if filter property itself is completely unsupported
+            }
+            ctx.drawImage(img, 0, 0, width, height);
           }
-          
-          ctx.drawImage(img, 0, 0, width, height);
         }
 
         // Compress as JPEG at 0.65 quality (optimal balance of file size & legible text for OCR)
