@@ -58,35 +58,17 @@ export async function loadUserDataFromFirestore(userId: string, email: string) {
       pushNotifications: newUser.pushNotifications,
       emailAlerts: newUser.emailAlerts,
       budgetLimit: INITIAL_BUDGET.limit,
-      budgetSpent: INITIAL_BUDGET.spent,
-    });
-
-    INITIAL_TRANSACTIONS.forEach(tx => {
-      const { id, ...data } = tx;
-      const ref = doc(collection(db, "users", userId, "transactions"), id);
-      batch.set(ref, data);
-    });
-
-    INITIAL_ASSETS.forEach(asset => {
-      const { id, ...data } = asset;
-      const ref = doc(collection(db, "users", userId, "assets"), id);
-      batch.set(ref, data);
-    });
-
-    INITIAL_SCENARIOS.forEach(sc => {
-      const { id, ...data } = sc;
-      const ref = doc(collection(db, "users", userId, "scenarios"), id);
-      batch.set(ref, data);
+      budgetSpent: 0,
     });
 
     await batch.commit();
 
     return {
       user: newUser,
-      budget: INITIAL_BUDGET,
-      transactions: INITIAL_TRANSACTIONS,
-      assets: INITIAL_ASSETS,
-      scenarios: INITIAL_SCENARIOS
+      budget: { limit: INITIAL_BUDGET.limit, spent: 0 },
+      transactions: [],
+      assets: [],
+      scenarios: []
     };
   }
 }
