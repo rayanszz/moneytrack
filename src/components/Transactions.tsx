@@ -9,6 +9,7 @@ import { t } from "../i18n";
 import { Search, SlidersHorizontal, ReceiptText, ArrowRight, X, Coffee, Home, Briefcase, CreditCard, ChevronRight, CheckCircle, AlertCircle, ShoppingBag, Car, FileUp, Plus } from "lucide-react";
 import { Transaction, User } from "../types";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
+import { preprocessReceiptImage } from "../utils/imagePreprocessor";
 
 interface TransactionsProps {
   user: User;
@@ -166,59 +167,25 @@ export default function Transactions({ user, transactions, onAddTransaction, onO
     }
   };
 
-  // Compress image before sending to avoid Vercel 4.5MB payload limit
-  const compressImage = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = (event) => {
-        const img = new Image();
-        img.src = event.target?.result as string;
-        img.onload = () => {
-          const canvas = document.createElement("canvas");
-          const MAX_WIDTH = 1200;
-          const MAX_HEIGHT = 1200;
-          let width = img.width;
-          let height = img.height;
-
-          if (width > height) {
-            if (width > MAX_WIDTH) {
-              height *= MAX_WIDTH / width;
-              width = MAX_WIDTH;
-            }
-          } else {
-            if (height > MAX_HEIGHT) {
-              width *= MAX_HEIGHT / height;
-              height = MAX_HEIGHT;
-            }
-          }
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext("2d");
-          ctx?.drawImage(img, 0, 0, width, height);
-          resolve(canvas.toDataURL("image/jpeg", 0.7)); // 0.7 quality is good for OCR
-        };
-        img.onerror = reject;
-      };
-      reader.onerror = reject;
-    });
-  };
-
   // Main Receipt Scanning Execution (with Server integration)
   const processFile = async (file: File) => {
     setScanError("");
     setScanLoading(true);
-    setScanProgress("Compressing image to reduce payload size...");
+    setScanProgress("Applying computer vision preprocessing (Grayscale + Contrast enhancement)...");
 
     try {
-      const base64data = await compressImage(file);
+      // Preprocess image with resizing, grayscaling, and contrast boosting (CV-like system)
+      const { base64, originalSize, compressedSize } = await preprocessReceiptImage(file);
       
-      setScanProgress("Uploading optimized image to AI scanner module...");
+      const originalKB = Math.round(originalSize / 1024);
+      const compressedKB = Math.round(compressedSize / 1024);
+      setScanProgress(`CV Preprocessing done! Optimized size: ${compressedKB} KB (down from ${originalKB} KB). Uploading to AI...`);
+      
       const response = await fetch("/api/scan-receipt", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
-          imageBase64: base64data,
+          imageBase64: base64,
           mimeType: "image/jpeg" 
         }),
       });

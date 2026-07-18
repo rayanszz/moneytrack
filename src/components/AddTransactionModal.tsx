@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { X, Plus, Minus, CreditCard, Save, Camera, Loader2 } from "lucide-react";
 import { Transaction, User } from "../types";
 import { t } from "../i18n";
+import { preprocessReceiptImage } from "../utils/imagePreprocessor";
 
 interface AddTransactionModalProps {
   isOpen: boolean;
@@ -34,41 +35,34 @@ export default function AddTransactionModal({ isOpen, onClose, onAdd, defaultTyp
 
     setIsScanning(true);
     try {
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const base64Data = reader.result as string;
-        try {
-          const response = await fetch("/api/scan-receipt", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ imageBase64: base64Data, mimeType: file.type }),
-          });
+      // Preprocess image with resizing, grayscaling, and contrast boosting (CV-like system)
+      const { base64 } = await preprocessReceiptImage(file);
+      
+      const response = await fetch("/api/scan-receipt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageBase64: base64, mimeType: "image/jpeg" }),
+      });
 
-          if (!response.ok) {
-            const errData = await response.json().catch(() => ({}));
-            throw new Error(errData.error || "Failed to scan receipt");
-          }
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || "Failed to scan receipt");
+      }
 
-          const data = await response.json();
-          
-          if (data.merchant) setMerchant(data.merchant);
-          if (data.amount) setAmount(data.amount.toString());
-          if (data.category) setCategory(data.category);
-          if (data.paymentMethod) setPaymentMethod(data.paymentMethod);
-          if (data.items && data.items.length > 0) setNotes("Items:\n" + data.items.join("\n"));
-          setType("expense");
-        } catch (error: any) {
-          console.error("Error scanning receipt:", error);
-          alert(`Error scanning receipt: ${error.message || 'Please try again.'}`);
-        } finally {
-          setIsScanning(false);
-          if (fileInputRef.current) fileInputRef.current.value = "";
-        }
-      };
-      reader.readAsDataURL(file);
-    } catch (error) {
-      console.error(error);
+      const data = await response.json();
+      
+      if (data.merchant) setMerchant(data.merchant);
+      if (data.amount) setAmount(data.amount.toString());
+      if (data.category) setCategory(data.category);
+      if (data.paymentMethod) setPaymentMethod(data.paymentMethod);
+      if (data.items && data.items.length > 0) setNotes("Items:\n" + data.items.join("\n"));
+      setType("expense");
+    } catch (error: any) {
+      console.error("Error scanning receipt:", error);
+      alert(`Error scanning receipt: ${error.message || 'Please try again.'}`);
+    } finally {
       setIsScanning(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
