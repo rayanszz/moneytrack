@@ -7,6 +7,7 @@ import React, { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { ArrowLeft, User as UserIcon, Lock, Globe, Coins, Palette, Bell, Mail, HelpCircle, ShieldAlert, Info, LogOut, ExternalLink, Check, Save, ChevronRight } from "lucide-react";
 import { User } from "../types";
+import { t } from "../i18n";
 
 interface SettingsProps {
   user: User;
@@ -69,7 +70,7 @@ export default function Settings({ user, onUpdateUser, onLogout, onBack }: Setti
         >
           <ArrowLeft className="w-6 h-6" />
         </button>
-        <h1 className="text-xl font-bold text-on-surface">Settings</h1>
+        <h1 className="text-xl font-bold text-on-surface">{t(user.language, "settings")}</h1>
         <div className="w-9"></div> {/* balance spacer */}
       </header>
 
@@ -84,7 +85,6 @@ export default function Settings({ user, onUpdateUser, onLogout, onBack }: Setti
             <p className="text-xs font-semibold text-outline leading-tight mt-1">{user.email}</p>
           </div>
         </div>
-
         <button 
           onClick={() => {
             setEditName(user.name);
@@ -94,7 +94,7 @@ export default function Settings({ user, onUpdateUser, onLogout, onBack }: Setti
           }}
           className="text-primary font-bold text-sm hover:underline focus:outline-none cursor-pointer"
         >
-          {isEditingProfile ? "Cancel" : "Edit Profile"}
+          {isEditingProfile ? t(user.language, "cancel") : t(user.language, "editProfile")}
         </button>
       </section>
 
@@ -108,11 +108,11 @@ export default function Settings({ user, onUpdateUser, onLogout, onBack }: Setti
             className="overflow-hidden"
           >
             <form onSubmit={handleUpdateProfile} className="bg-white border border-gray-100 rounded-3xl p-5 shadow-[0px_4px_20px_rgba(0,0,0,0.02)] space-y-4">
-              <h3 className="text-sm font-bold text-primary pl-0.5">Edit Profile Info</h3>
+              <h3 className="text-sm font-bold text-primary pl-0.5">{t(user.language, "editProfileInfo")}</h3>
               
               <div className="space-y-3 text-sm">
                 <div>
-                  <label className="text-xs font-bold text-outline uppercase tracking-wider mb-1 block ml-0.5">Full Name</label>
+                  <label className="text-xs font-bold text-outline uppercase tracking-wider mb-1 block ml-0.5">{t(user.language, "fullName")}</label>
                   <input 
                     type="text" 
                     value={editName}
@@ -122,7 +122,7 @@ export default function Settings({ user, onUpdateUser, onLogout, onBack }: Setti
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-outline uppercase tracking-wider mb-1 block ml-0.5">Email Address</label>
+                  <label className="text-xs font-bold text-outline uppercase tracking-wider mb-1 block ml-0.5">{t(user.language, "emailAddress")}</label>
                   <input 
                     type="email" 
                     value={editEmail}
@@ -132,14 +132,49 @@ export default function Settings({ user, onUpdateUser, onLogout, onBack }: Setti
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-outline uppercase tracking-wider mb-1 block ml-0.5">Avatar Image URL</label>
+                  <label className="text-xs font-bold text-outline uppercase tracking-wider mb-1 block ml-0.5">{user.language === 'Indonesia' ? 'Foto Profil' : 'Profile Picture'}</label>
                   <input 
-                    type="url" 
-                    value={avatarInput}
-                    onChange={(e) => setAvatarInput(e.target.value)}
-                    placeholder="https://..."
-                    className="w-full bg-[#F3F4F6] text-on-surface rounded-xl px-4 py-2.5 border-none focus:ring-2 focus:ring-primary focus:bg-white focus:outline-none transition-all text-sm font-medium"
+                    type="file" 
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                          const img = new Image();
+                          img.onload = () => {
+                            const canvas = document.createElement("canvas");
+                            const ctx = canvas.getContext("2d");
+                            const MAX_SIZE = 256;
+                            let width = img.width;
+                            let height = img.height;
+
+                            if (width > height) {
+                              if (width > MAX_SIZE) {
+                                height *= MAX_SIZE / width;
+                                width = MAX_SIZE;
+                              }
+                            } else {
+                              if (height > MAX_SIZE) {
+                                width *= MAX_SIZE / height;
+                                height = MAX_SIZE;
+                              }
+                            }
+                            canvas.width = width;
+                            canvas.height = height;
+                            ctx?.drawImage(img, 0, 0, width, height);
+                            setAvatarInput(canvas.toDataURL("image/jpeg", 0.8));
+                          };
+                          img.src = reader.result as string;
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                    className="w-full bg-[#F3F4F6] text-on-surface rounded-xl px-4 py-2 border-none focus:ring-2 focus:ring-primary focus:bg-white focus:outline-none transition-all text-sm font-medium file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
                   />
+                  {avatarInput && (
+                     <p className="text-xs mt-2 text-primary font-semibold">{user.language === 'Indonesia' ? 'Gambar dipilih' : 'Image selected'}</p>
+                  )}
                 </div>
               </div>
 
@@ -203,7 +238,7 @@ export default function Settings({ user, onUpdateUser, onLogout, onBack }: Setti
               <div className="w-10 h-10 rounded-xl bg-emerald-50 text-primary flex items-center justify-center shadow-sm">
                 <Coins className="w-5 h-5" />
               </div>
-              <span className="font-bold text-sm text-on-surface">Currency</span>
+              <span className="font-bold text-sm text-on-surface">{t(user.language, "currency")}</span>
             </div>
             <select 
               value={user.currency} 
@@ -221,7 +256,7 @@ export default function Settings({ user, onUpdateUser, onLogout, onBack }: Setti
               <div className="w-10 h-10 rounded-xl bg-emerald-50 text-primary flex items-center justify-center shadow-sm">
                 <Globe className="w-5 h-5" />
               </div>
-              <span className="font-bold text-sm text-on-surface">Language</span>
+              <span className="font-bold text-sm text-on-surface">{t(user.language, "language")}</span>
             </div>
             <select 
               value={user.language} 
@@ -239,7 +274,7 @@ export default function Settings({ user, onUpdateUser, onLogout, onBack }: Setti
               <div className="w-10 h-10 rounded-xl bg-emerald-50 text-primary flex items-center justify-center shadow-sm">
                 <Palette className="w-5 h-5" />
               </div>
-              <span className="font-bold text-sm text-on-surface">Theme</span>
+              <span className="font-bold text-sm text-on-surface">{t(user.language, "theme")}</span>
             </div>
             <select 
               value={user.theme} 
@@ -255,7 +290,7 @@ export default function Settings({ user, onUpdateUser, onLogout, onBack }: Setti
 
       {/* NOTIFICATIONS GROUP */}
       <section className="space-y-2">
-        <h3 className="text-xs font-semibold text-outline uppercase tracking-wider pl-2">Notifications</h3>
+        <h3 className="text-xs font-semibold text-outline uppercase tracking-wider pl-2">{t(user.language, "notifications")}</h3>
         <div className="bg-white rounded-3xl border border-gray-100 shadow-[0px_4px_20px_rgba(0,0,0,0.02)] overflow-hidden divide-y divide-gray-100">
           
           {/* Push */}
@@ -264,7 +299,7 @@ export default function Settings({ user, onUpdateUser, onLogout, onBack }: Setti
               <div className="w-10 h-10 rounded-xl bg-emerald-50 text-primary flex items-center justify-center shadow-sm">
                 <Bell className="w-5 h-5" />
               </div>
-              <span className="font-bold text-sm text-on-surface">Push Notifications</span>
+              <span className="font-bold text-sm text-on-surface">{t(user.language, "pushNotifications")}</span>
             </div>
             
             {/* Custom Toggle Switch (compliant styling) */}
@@ -285,7 +320,7 @@ export default function Settings({ user, onUpdateUser, onLogout, onBack }: Setti
               <div className="w-10 h-10 rounded-xl bg-emerald-50 text-primary flex items-center justify-center shadow-sm">
                 <Mail className="w-5 h-5" />
               </div>
-              <span className="font-bold text-sm text-on-surface">Email Alerts</span>
+              <span className="font-bold text-sm text-on-surface">{t(user.language, "emailAlerts")}</span>
             </div>
             
             {/* Custom Toggle Switch */}
@@ -304,7 +339,7 @@ export default function Settings({ user, onUpdateUser, onLogout, onBack }: Setti
 
       {/* SUPPORT GROUP */}
       <section className="space-y-2">
-        <h3 className="text-xs font-semibold text-outline uppercase tracking-wider pl-2">Support</h3>
+        <h3 className="text-xs font-semibold text-outline uppercase tracking-wider pl-2">{t(user.language, "support")}</h3>
         <div className="bg-white rounded-3xl border border-gray-100 shadow-[0px_4px_20px_rgba(0,0,0,0.02)] overflow-hidden divide-y divide-gray-100">
           
           {/* Help Center */}
@@ -316,7 +351,7 @@ export default function Settings({ user, onUpdateUser, onLogout, onBack }: Setti
               <div className="w-10 h-10 rounded-xl bg-emerald-50 text-primary flex items-center justify-center shadow-sm">
                 <HelpCircle className="w-5 h-5" />
               </div>
-              <span className="font-bold text-sm text-on-surface">Help Center</span>
+              <span className="font-bold text-sm text-on-surface">{t(user.language, "helpCenter")}</span>
             </div>
             <ChevronRight className="w-5 h-5 text-outline" />
           </div>
@@ -330,7 +365,7 @@ export default function Settings({ user, onUpdateUser, onLogout, onBack }: Setti
               <div className="w-10 h-10 rounded-xl bg-emerald-50 text-primary flex items-center justify-center shadow-sm">
                 <ShieldAlert className="w-5 h-5" />
               </div>
-              <span className="font-bold text-sm text-on-surface">Privacy Policy</span>
+              <span className="font-bold text-sm text-on-surface">{t(user.language, "privacyPolicy")}</span>
             </div>
             <ExternalLink className="w-4 h-4 text-outline mr-1" />
           </div>
@@ -341,7 +376,7 @@ export default function Settings({ user, onUpdateUser, onLogout, onBack }: Setti
               <div className="w-10 h-10 rounded-xl bg-emerald-50 text-primary flex items-center justify-center shadow-sm">
                 <Info className="w-5 h-5" />
               </div>
-              <span className="font-bold text-sm text-on-surface">About FinTrack Pro</span>
+              <span className="font-bold text-sm text-on-surface">{t(user.language, "about")}</span>
             </div>
             <span className="text-xs font-bold text-on-surface-variant bg-surface-container-highest px-2.5 py-1 rounded-lg">
               v2.4.1
@@ -357,7 +392,7 @@ export default function Settings({ user, onUpdateUser, onLogout, onBack }: Setti
           className="w-full py-4 rounded-2xl flex items-center justify-center gap-2 bg-red-50 text-red-700 border border-red-100 hover:bg-red-100/70 transition-all duration-200 active:scale-98 font-bold text-sm cursor-pointer"
         >
           <LogOut className="w-5 h-5" />
-          <span>Log Out</span>
+          <span>{t(user.language, "logOut")}</span>
         </button>
       </section>
     </div>

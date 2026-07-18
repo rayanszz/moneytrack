@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
+import { t } from "./i18n";
 import { 
   Home as HomeIcon, 
   Wallet, 
@@ -108,9 +109,8 @@ export default function App() {
   };
 
   // Budget Updater
-  const handleUpdateBudget = async (newLimit: number) => {
+  const handleUpdateBudget = async (newBudget: Budget) => {
     if (!userId || !user) return;
-    const newBudget = { ...budget, limit: newLimit };
     setBudget(newBudget);
     await saveUserSettingToFirestore(userId, user, newBudget);
   };
@@ -333,7 +333,7 @@ export default function App() {
               activeTab === "home" ? "bg-emerald-50 text-primary" : "text-on-surface-variant hover:bg-gray-50"
             }`}
           >
-            Home
+            {t(user.language, "dashboard")}
           </button>
           <button 
             onClick={() => setActiveTab("transactions")}
@@ -341,7 +341,7 @@ export default function App() {
               activeTab === "transactions" ? "bg-emerald-50 text-primary" : "text-on-surface-variant hover:bg-gray-50"
             }`}
           >
-            Transactions
+            {t(user.language, "transactions")}
           </button>
           <button 
             onClick={() => setActiveTab("portfolio")}
@@ -349,7 +349,7 @@ export default function App() {
               activeTab === "portfolio" ? "bg-emerald-50 text-primary" : "text-on-surface-variant hover:bg-gray-50"
             }`}
           >
-            Portfolio
+            {t(user.language, "portfolio")}
           </button>
           <button 
             onClick={() => setActiveTab("forecast")}
@@ -357,7 +357,7 @@ export default function App() {
               activeTab === "forecast" ? "bg-emerald-50 text-primary" : "text-on-surface-variant hover:bg-gray-50"
             }`}
           >
-            Forecast
+            {t(user.language, "forecast")}
           </button>
         </nav>
 
@@ -440,7 +440,7 @@ export default function App() {
           }`}
         >
           <HomeIcon className="w-5 h-5" />
-          <span className="text-[10px] font-bold mt-1">Home</span>
+          <span className="text-[10px] font-bold mt-1">{t(user.language, "dashboard")}</span>
         </button>
 
         {/* Tab 2: Transactions */}
@@ -453,7 +453,7 @@ export default function App() {
           }`}
         >
           <Wallet className="w-5 h-5" />
-          <span className="text-[10px] font-bold mt-1">Ledger</span>
+          <span className="text-[10px] font-bold mt-1">{t(user.language, "transactions")}</span>
         </button>
 
         {/* Tab 3: Portfolio */}
@@ -466,7 +466,7 @@ export default function App() {
           }`}
         >
           <PieChart className="w-5 h-5" />
-          <span className="text-[10px] font-bold mt-1">Portfolio</span>
+          <span className="text-[10px] font-bold mt-1">{t(user.language, "portfolio")}</span>
         </button>
 
         {/* Tab 4: Forecast */}
@@ -479,7 +479,7 @@ export default function App() {
           }`}
         >
           <TrendingUp className="w-5 h-5" />
-          <span className="text-[10px] font-bold mt-1">Forecast</span>
+          <span className="text-[10px] font-bold mt-1">{t(user.language, "forecast")}</span>
         </button>
       </nav>
 
@@ -501,6 +501,7 @@ export default function App() {
         onClose={() => setIsAddTransactionOpen(false)}
         onAdd={handleAddTransaction}
         defaultType={addTxDefaultType}
+        user={user}
       />
     </div>
   );

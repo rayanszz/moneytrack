@@ -162,6 +162,14 @@ export const INITIAL_ASSETS: Asset[] = [
 export const INITIAL_BUDGET: Budget = {
   limit: 5000,
   spent: 4200,
+  subBudgets: [
+    { category: "Food & Dining", limit: 1000 },
+    { category: "Rent", limit: 2500 },
+    { category: "Travel", limit: 600 },
+    { category: "Shopping", limit: 500 },
+    { category: "Utilities", limit: 300 },
+    { category: "Miscellaneous", limit: 100 }
+  ]
 };
 
 export const INITIAL_SCENARIOS: ForecastScenario[] = [

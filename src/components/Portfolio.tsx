@@ -7,6 +7,7 @@ import React, { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { TrendingUp, ChevronRight, TrendingDown, CircleDollarSign, Coins, Building, Landmark, Award, Plus, Edit2, X, BarChart3 } from "lucide-react";
 import { Asset, User, Transaction } from "../types";
+import { t } from "../i18n";
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from "recharts";
 
 interface PortfolioProps {
@@ -172,7 +173,7 @@ export default function Portfolio({ user, assets, transactions, onAddAsset, onUp
     <div className="space-y-6">
       {/* HEADER SECTION */}
       <section className="text-center space-y-2 py-4">
-        <h1 className="text-sm font-semibold uppercase text-on-surface-variant tracking-wider">My Portfolio</h1>
+        <h1 className="text-sm font-semibold uppercase text-on-surface-variant tracking-wider">{t(user.language, "portfolio")}</h1>
         <div className="text-4xl md:text-5xl font-bold text-primary tracking-tight font-sans select-none">
           {formatValue(totalValue)}
         </div>
@@ -322,7 +323,7 @@ export default function Portfolio({ user, assets, transactions, onAddAsset, onUp
                     {getAssetIcon(asset.type)}
                   </div>
                   <div>
-                    <div className="font-bold text-sm text-on-surface">{asset.name === "Stocks" ? "Apple Inc." : asset.name === "Crypto" ? "Bitcoin" : "Vanguard Real Estate"}</div>
+                    <div className="font-bold text-sm text-on-surface">{asset.name}</div>
                     <div className="text-xs font-semibold text-on-surface-variant mt-0.5">
                       {asset.countLabel}
                     </div>
@@ -369,7 +370,7 @@ export default function Portfolio({ user, assets, transactions, onAddAsset, onUp
 
               <form onSubmit={handleSaveAsset} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-semibold text-on-surface mb-1.5">Asset Name</label>
+                  <label className="block text-sm font-semibold text-on-surface mb-1.5">{t(user.language, "assetName")}</label>
                   <input
                     type="text"
                     required
@@ -408,7 +409,7 @@ export default function Portfolio({ user, assets, transactions, onAddAsset, onUp
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-on-surface mb-1.5">Current Value</label>
+                  <label className="block text-sm font-semibold text-on-surface mb-1.5">{t(user.language, "currentValue")}</label>
                   <div className="flex items-center bg-surface-container-lowest border border-gray-200 rounded-xl overflow-hidden focus-within:border-primary transition-colors">
                     <span className="pl-4 font-semibold text-outline text-sm select-none">{user.currency === 'IDR' ? 'Rp' : '$'}</span>
                     <input

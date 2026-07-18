@@ -23,6 +23,7 @@ export async function loadUserDataFromFirestore(userId: string, email: string) {
     const budget = {
       limit: data.budgetLimit || 5000,
       spent: data.budgetSpent || 0,
+      subBudgets: data.subBudgets || INITIAL_BUDGET.subBudgets,
     } as Budget;
 
     const txSnap = await getDocs(collection(db, "users", userId, "transactions"));
@@ -86,6 +87,7 @@ export async function saveUserSettingToFirestore(userId: string, user: User, bud
     emailAlerts: user.emailAlerts,
     budgetLimit: budget.limit,
     budgetSpent: budget.spent,
+    subBudgets: budget.subBudgets || [],
   }, { merge: true });
 }
 

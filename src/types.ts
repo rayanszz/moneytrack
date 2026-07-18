@@ -53,7 +53,13 @@ export interface ForecastScenario {
   dateCreated: string;
 }
 
+export interface SubBudget {
+  category: string;
+  limit: number;
+}
+
 export interface Budget {
   limit: number;
   spent: number;
+  subBudgets?: SubBudget[];
 }

@@ -5,9 +5,10 @@
 
 import React, { useState } from "react";
 import { motion } from "motion/react";
-import { Eye, EyeOff, TrendingUp, ArrowUp, ArrowDown, CreditCard, Coffee, Home, Briefcase, Plus, Minus, ReceiptText, ArrowRightLeft } from "lucide-react";
+import { Eye, EyeOff, TrendingUp, ArrowUp, ArrowDown, CreditCard, Coffee, Home, Briefcase, Plus, Minus, ReceiptText, ArrowRightLeft, ShoppingBag, Car } from "lucide-react";
 import { Transaction, Budget, User, Asset } from "../types";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
+import { t } from "../i18n";
 
 interface DashboardProps {
   user: User;
@@ -16,13 +17,65 @@ interface DashboardProps {
   assets: Asset[];
   onNavigateToTab: (tab: "home" | "transactions" | "portfolio" | "forecast") => void;
   onOpenAddTransaction: (type: "income" | "expense") => void;
-  onUpdateBudget: (limit: number) => void;
+  onUpdateBudget: (newBudget: Budget) => void;
 }
 
 export default function Dashboard({ user, transactions, budget, assets, onNavigateToTab, onOpenAddTransaction, onUpdateBudget }: DashboardProps) {
   const [showBalance, setShowBalance] = useState(true);
   const [isEditingBudget, setIsEditingBudget] = useState(false);
   const [budgetInput, setBudgetInput] = useState(budget.limit.toString());
+  const [subBudgetInputs, setSubBudgetInputs] = useState<{ [key: string]: string }>({});
+
+  const defaultSubBudgetsList = [
+    { category: "Food & Dining", limit: Math.round(budget.limit * 0.2) },
+    { category: "Rent", limit: Math.round(budget.limit * 0.4) },
+    { category: "Travel", limit: Math.round(budget.limit * 0.15) },
+    { category: "Shopping", limit: Math.round(budget.limit * 0.15) },
+    { category: "Utilities", limit: Math.round(budget.limit * 0.08) },
+    { category: "Miscellaneous", limit: Math.round(budget.limit * 0.02) },
+  ];
+
+  const subBudgets = budget.subBudgets && budget.subBudgets.length > 0 
+    ? budget.subBudgets 
+    : defaultSubBudgetsList;
+
+  const getSubBudgetSpent = (category: string) => {
+    return transactions
+      .filter(tx => tx.type === "expense" && tx.category === category)
+      .reduce((acc, tx) => acc + Math.abs(tx.amount), 0);
+  };
+
+  const startEditingBudget = () => {
+    setBudgetInput(budget.limit.toString());
+    const initialInputs: { [key: string]: string } = {};
+    subBudgets.forEach(sb => {
+      initialInputs[sb.category] = sb.limit.toString();
+    });
+    setSubBudgetInputs(initialInputs);
+    setIsEditingBudget(true);
+  };
+
+  const getCategoryLabel = (cat: string) => {
+    if (user.language === "Indonesia") {
+      switch (cat) {
+        case "Food & Dining": return "Makanan & Makan";
+        case "Rent": return "Rumah (Sewa/Cicilan)";
+        case "Travel": return "Mobil & Perjalanan";
+        case "Shopping": return "Belanja";
+        case "Utilities": return "Tagihan & Utilitas";
+        default: return "Lain-lain";
+      }
+    } else {
+      switch (cat) {
+        case "Food & Dining": return "Food & Dining";
+        case "Rent": return "Rent & Housing";
+        case "Travel": return "Travel & Car";
+        case "Shopping": return "Shopping";
+        case "Utilities": return "Utilities & Bills";
+        default: return "Miscellaneous";
+      }
+    }
+  };
 
   // Total balance / net worth calculation based on actual assets + cash flow
   const assetsTotal = assets.reduce((acc, a) => acc + a.value, 0);
@@ -46,6 +99,12 @@ export default function Dashboard({ user, transactions, budget, assets, onNaviga
         return <Coffee className="w-5 h-5 text-on-surface-variant" />;
       case "Rent":
         return <Home className="w-5 h-5 text-on-surface-variant" />;
+      case "Travel":
+        return <Car className="w-5 h-5 text-on-surface-variant" />;
+      case "Shopping":
+        return <ShoppingBag className="w-5 h-5 text-on-surface-variant" />;
+      case "Utilities":
+        return <ReceiptText className="w-5 h-5 text-on-surface-variant" />;
       case "Salary":
         return <Briefcase className="w-5 h-5 text-[#2b6954]" />;
       default:
@@ -93,9 +152,21 @@ export default function Dashboard({ user, transactions, budget, assets, onNaviga
 
   const handleBudgetSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const val = Number(budgetInput);
-    if (!isNaN(val) && val > 0) {
-      onUpdateBudget(val);
+    const totalVal = Number(budgetInput);
+    if (!isNaN(totalVal) && totalVal > 0) {
+      const updatedSubBudgets = subBudgets.map(sb => {
+        const valStr = subBudgetInputs[sb.category];
+        const val = valStr !== undefined && valStr !== "" ? Number(valStr) : sb.limit;
+        return {
+          category: sb.category,
+          limit: !isNaN(val) && val > 0 ? val : sb.limit
+        };
+      });
+      onUpdateBudget({
+        limit: totalVal,
+        spent: budget.spent,
+        subBudgets: updatedSubBudgets
+      });
       setIsEditingBudget(false);
     }
   };
@@ -105,7 +176,7 @@ export default function Dashboard({ user, transactions, budget, assets, onNaviga
       {/* HEADER SECTION (MOBILE ONLY IN APP SHELL - IN DEDICATED MOBILE CONTAINER HERE) */}
       <div className="md:hidden flex justify-between items-center mb-1">
         <div>
-          <p className="text-sm font-medium text-on-surface-variant">Good Morning,</p>
+          <p className="text-sm font-medium text-on-surface-variant">{t(user.language, "dashboard")}</p>
           <h1 className="text-2xl font-bold text-on-surface tracking-tight">{user.name}</h1>
         </div>
         <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-surface-container-high shadow-sm cursor-pointer hover:opacity-95" onClick={() => onNavigateToTab("portfolio")}>
@@ -119,7 +190,7 @@ export default function Dashboard({ user, transactions, budget, assets, onNaviga
         <div className="relative z-10 flex flex-col gap-4">
           <div className="flex justify-between items-center">
             <span className="text-sm font-medium text-on-surface-variant flex items-center gap-1.5 select-none">
-              Total Net Worth 
+              {t(user.language, "totalBalance")} 
               <button 
                 onClick={() => setShowBalance(!showBalance)}
                 className="text-outline hover:text-on-surface transition-colors focus:outline-none"
@@ -150,7 +221,7 @@ export default function Dashboard({ user, transactions, budget, assets, onNaviga
           <div className="w-12 h-12 rounded-full bg-emerald-50 group-hover:bg-emerald-100 flex items-center justify-center text-primary transition-colors">
             <ReceiptText className="w-6 h-6" />
           </div>
-          <span className="text-xs font-semibold text-on-surface-variant leading-tight">Scan<br/>Bill</span>
+          <span className="text-xs font-semibold text-on-surface-variant leading-tight">{t(user.language, "scanReceipt")}</span>
         </button>
 
         <button 
@@ -160,7 +231,7 @@ export default function Dashboard({ user, transactions, budget, assets, onNaviga
           <div className="w-12 h-12 rounded-full bg-red-50 group-hover:bg-red-100 flex items-center justify-center text-red-600 transition-colors">
             <Minus className="w-6 h-6" />
           </div>
-          <span className="text-xs font-semibold text-on-surface-variant leading-tight">Add<br/>Expense</span>
+          <span className="text-xs font-semibold text-on-surface-variant leading-tight">{t(user.language, "addTransaction")}</span>
         </button>
 
         <button 
@@ -170,7 +241,7 @@ export default function Dashboard({ user, transactions, budget, assets, onNaviga
           <div className="w-12 h-12 rounded-full bg-emerald-50 group-hover:bg-emerald-100 flex items-center justify-center text-primary transition-colors">
             <Plus className="w-6 h-6" />
           </div>
-          <span className="text-xs font-semibold text-on-surface-variant leading-tight">Add<br/>Income</span>
+          <span className="text-xs font-semibold text-on-surface-variant leading-tight">{t(user.language, "income")}</span>
         </button>
 
         <button 
@@ -189,39 +260,96 @@ export default function Dashboard({ user, transactions, budget, assets, onNaviga
         {/* MONTHLY SPENDING & CHART */}
         <section className="bg-white rounded-3xl p-6 shadow-[0px_4px_20px_rgba(0,0,0,0.03)] border border-gray-100 flex flex-col justify-between">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-bold text-on-surface">Monthly Spending</h3>
+            <h3 className="text-lg font-bold text-on-surface">{t(user.language, "monthlyBudget")}</h3>
             <button 
-              onClick={() => setIsEditingBudget(!isEditingBudget)}
-              className="text-primary font-semibold text-sm hover:underline"
+              onClick={() => {
+                if (isEditingBudget) {
+                  setIsEditingBudget(false);
+                } else {
+                  startEditingBudget();
+                }
+              }}
+              className="text-primary font-semibold text-sm hover:underline cursor-pointer"
             >
-              Edit Budget
+              {isEditingBudget ? t(user.language, "cancel") : "Edit Budget"}
             </button>
           </div>
           
           {isEditingBudget && (
-            <form onSubmit={handleBudgetSubmit} className="mb-4 flex gap-2">
-              <div className="flex-1 flex items-center bg-surface-container-lowest border border-gray-200 rounded-lg focus-within:border-primary transition-colors overflow-hidden">
-                <span className="pl-3 font-semibold text-outline text-sm select-none">{user.currency === 'IDR' ? 'Rp' : '$'}</span>
-                <input
-                  type="text"
-                  value={budgetInput === "" ? "" : new Intl.NumberFormat(user.currency === 'IDR' ? 'id-ID' : 'en-US').format(Number(budgetInput))}
-                  onChange={e => {
-                    const val = parseInt(e.target.value.replace(/\D/g, ''));
-                    setBudgetInput(isNaN(val) ? "" : val.toString());
-                  }}
-                  className="w-full bg-transparent px-2 py-1.5 text-sm font-semibold outline-none tabular-nums"
-                  placeholder="New limit..."
-                  autoFocus
-                />
+            <form onSubmit={handleBudgetSubmit} className="mb-6 space-y-4 bg-gray-50/50 p-4 rounded-2xl border border-gray-100">
+              <div>
+                <label className="text-xs font-bold text-on-surface-variant block mb-1">
+                  {user.language === "Indonesia" ? "Total Batas Anggaran" : "Total Budget Limit"}
+                </label>
+                <div className="flex items-center bg-white border border-gray-200 rounded-lg focus-within:border-primary transition-colors overflow-hidden">
+                  <span className="pl-3 font-semibold text-outline text-sm select-none">{user.currency === 'IDR' ? 'Rp' : '$'}</span>
+                  <input
+                    type="text"
+                    value={budgetInput === "" ? "" : new Intl.NumberFormat(user.currency === 'IDR' ? 'id-ID' : 'en-US').format(Number(budgetInput))}
+                    onChange={e => {
+                      const val = parseInt(e.target.value.replace(/\D/g, ''));
+                      setBudgetInput(isNaN(val) ? "" : val.toString());
+                    }}
+                    className="w-full bg-transparent px-2 py-2 text-sm font-semibold outline-none tabular-nums"
+                    placeholder="New limit..."
+                    autoFocus
+                  />
+                </div>
               </div>
-              <button type="submit" className="bg-primary text-white px-4 py-1.5 rounded-lg text-sm font-semibold hover:opacity-90">Save</button>
+
+              <div className="border-t border-gray-200/65 pt-3">
+                <span className="text-xs font-bold text-primary block mb-2">
+                  {user.language === "Indonesia" ? "Batas Sub Anggaran Kategori" : "Category Sub-Budget Limits"}
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {subBudgets.map(sb => (
+                    <div key={sb.category} className="space-y-1">
+                      <label className="text-[11px] font-semibold text-on-surface-variant block">
+                        {getCategoryLabel(sb.category)}
+                      </label>
+                      <div className="flex items-center bg-white border border-gray-200 rounded-lg focus-within:border-primary transition-colors overflow-hidden">
+                        <span className="pl-2.5 font-bold text-outline text-xs select-none">{user.currency === 'IDR' ? 'Rp' : '$'}</span>
+                        <input
+                          type="text"
+                          value={subBudgetInputs[sb.category] === undefined ? "" : subBudgetInputs[sb.category] === "" ? "" : new Intl.NumberFormat(user.currency === 'IDR' ? 'id-ID' : 'en-US').format(Number(subBudgetInputs[sb.category]))}
+                          onChange={e => {
+                            const val = parseInt(e.target.value.replace(/\D/g, ''));
+                            setSubBudgetInputs({
+                              ...subBudgetInputs,
+                              [sb.category]: isNaN(val) ? "" : val.toString()
+                            });
+                          }}
+                          className="w-full bg-transparent px-2 py-1 text-xs font-semibold outline-none tabular-nums"
+                          placeholder="Category limit..."
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex gap-2 justify-end pt-2">
+                <button 
+                  type="button" 
+                  onClick={() => setIsEditingBudget(false)} 
+                  className="bg-gray-100 hover:bg-gray-200 text-on-surface-variant px-4 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer"
+                >
+                  {t(user.language, "cancel")}
+                </button>
+                <button 
+                  type="submit" 
+                  className="bg-primary text-white px-4 py-1.5 rounded-lg text-xs font-bold hover:opacity-90 transition-colors cursor-pointer"
+                >
+                  {t(user.language, "save")}
+                </button>
+              </div>
             </form>
           )}
 
-          <div className="space-y-3 mb-6">
+          <div className="space-y-3 mb-4">
             <div className="flex justify-between text-sm font-semibold text-on-surface-variant">
-              <span>{formatValue(budgetSpent)} Spent</span>
-              <span>{formatValue(budgetLimit)} Budget</span>
+              <span>{formatValue(budgetSpent)} {t(user.language, "expense")}</span>
+              <span>{formatValue(budgetLimit)} {t(user.language, "monthlyBudget")}</span>
             </div>
             <div className="h-3.5 w-full bg-surface-container rounded-full overflow-hidden">
               <motion.div 
@@ -234,6 +362,72 @@ export default function Dashboard({ user, transactions, budget, assets, onNaviga
             <p className="text-xs font-semibold text-outline text-right">
               {budgetUtilizedPercent}% of budget utilized
             </p>
+          </div>
+
+          {/* DETAILED SUB-BUDGETS */}
+          <div className="border-t border-gray-100 pt-4 mt-2 mb-6">
+            <h4 className="text-sm font-bold text-on-surface mb-3 flex items-center justify-between">
+              <span>{user.language === "Indonesia" ? "Sub Anggaran Detail" : "Detailed Sub-budgets"}</span>
+              <span className="text-[10px] bg-emerald-50 text-primary-container px-2 py-0.5 rounded-full font-semibold">
+                {user.language === "Indonesia" ? "Terkelola" : "Managed"}
+              </span>
+            </h4>
+            <div className="space-y-3">
+              {subBudgets.map(sb => {
+                const spent = getSubBudgetSpent(sb.category);
+                const limit = sb.limit;
+                const percent = limit > 0 ? Math.min(100, Math.round((spent / limit) * 100)) : 0;
+                
+                // Colors based on usage
+                const barColor = percent > 90 
+                  ? "bg-red-500" 
+                  : percent > 75 
+                    ? "bg-amber-500" 
+                    : "bg-primary";
+
+                const bgLight = percent > 90
+                  ? "bg-red-50"
+                  : percent > 75
+                    ? "bg-amber-50"
+                    : "bg-emerald-50/60";
+
+                const textColor = percent > 90
+                  ? "text-red-700"
+                  : percent > 75
+                    ? "text-amber-700"
+                    : "text-emerald-800";
+
+                return (
+                  <div key={sb.category} className="space-y-1 bg-gray-50/40 p-2.5 rounded-xl border border-gray-100/50">
+                    <div className="flex justify-between items-center text-xs">
+                      <div className="flex items-center gap-2">
+                        <div className={`p-1.5 rounded-lg ${bgLight} ${textColor}`}>
+                          {getCategoryIcon(sb.category)}
+                        </div>
+                        <span className="font-bold text-on-surface">{getCategoryLabel(sb.category)}</span>
+                      </div>
+                      <div className="text-right font-medium text-on-surface-variant">
+                        <span className="font-bold text-on-surface tabular-nums">{formatValue(spent)}</span>
+                        <span className="text-[10px] text-outline mx-1">/</span>
+                        <span className="tabular-nums">{formatValue(limit)}</span>
+                      </div>
+                    </div>
+                    <div className="h-2 w-full bg-surface-container rounded-full overflow-hidden">
+                      <motion.div 
+                        initial={{ width: 0 }}
+                        animate={{ width: `${percent}%` }}
+                        transition={{ duration: 0.8, ease: "easeOut" }}
+                        className={`h-full ${barColor} rounded-full`}
+                      ></motion.div>
+                    </div>
+                    <div className="flex justify-between items-center text-[10px] font-semibold text-outline px-0.5">
+                      <span>{percent}% {user.language === "Indonesia" ? "terpakai" : "used"}</span>
+                      {percent > 90 && <span className="text-red-500 font-bold">{user.language === "Indonesia" ? "Over limit!" : "Over budget!"}</span>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
           
           {/* DAILY SPENDING CHART */}
@@ -262,12 +456,12 @@ export default function Dashboard({ user, transactions, budget, assets, onNaviga
         {/* RECENT TRANSACTIONS */}
         <section className="bg-white rounded-3xl p-6 shadow-[0px_4px_20px_rgba(0,0,0,0.03)] border border-gray-100 flex flex-col justify-between">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-bold text-on-surface">Recent</h3>
+            <h3 className="text-lg font-bold text-on-surface">{t(user.language, "recentTransactions")}</h3>
             <button 
               onClick={() => onNavigateToTab("transactions")}
               className="text-primary font-semibold text-sm hover:underline"
             >
-              View All
+              {t(user.language, "viewAll")}
             </button>
           </div>
           

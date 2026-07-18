@@ -6,16 +6,18 @@
 import React, { useState, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { X, Plus, Minus, CreditCard, Save, Camera, Loader2 } from "lucide-react";
-import { Transaction } from "../types";
+import { Transaction, User } from "../types";
+import { t } from "../i18n";
 
 interface AddTransactionModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAdd: (tx: Omit<Transaction, "id">) => void;
   defaultType?: "income" | "expense";
+  user: User;
 }
 
-export default function AddTransactionModal({ isOpen, onClose, onAdd, defaultType = "expense" }: AddTransactionModalProps) {
+export default function AddTransactionModal({ isOpen, onClose, onAdd, defaultType = "expense", user }: AddTransactionModalProps) {
   const [type, setType] = useState<"income" | "expense">(defaultType);
   const [merchant, setMerchant] = useState("");
   const [amount, setAmount] = useState("");
@@ -42,7 +44,10 @@ export default function AddTransactionModal({ isOpen, onClose, onAdd, defaultTyp
             body: JSON.stringify({ imageBase64: base64Data, mimeType: file.type }),
           });
 
-          if (!response.ok) throw new Error("Failed to scan receipt");
+          if (!response.ok) {
+            const errData = await response.json().catch(() => ({}));
+            throw new Error(errData.error || "Failed to scan receipt");
+          }
 
           const data = await response.json();
           
@@ -52,9 +57,9 @@ export default function AddTransactionModal({ isOpen, onClose, onAdd, defaultTyp
           if (data.paymentMethod) setPaymentMethod(data.paymentMethod);
           if (data.items && data.items.length > 0) setNotes("Items:\n" + data.items.join("\n"));
           setType("expense");
-        } catch (error) {
+        } catch (error: any) {
           console.error("Error scanning receipt:", error);
-          alert("Error scanning receipt. Please try again.");
+          alert(`Error scanning receipt: ${error.message || 'Please try again.'}`);
         } finally {
           setIsScanning(false);
           if (fileInputRef.current) fileInputRef.current.value = "";
@@ -111,7 +116,7 @@ export default function AddTransactionModal({ isOpen, onClose, onAdd, defaultTyp
             <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
               <h3 className="text-lg font-bold text-primary flex items-center gap-1.5">
                 <CreditCard className="w-5 h-5" />
-                <span>Add Transaction</span>
+                <span>{t(user.language, "addTransaction")}</span>
               </h3>
               <button 
                 onClick={onClose}
@@ -158,7 +163,7 @@ export default function AddTransactionModal({ isOpen, onClose, onAdd, defaultTyp
                   }`}
                 >
                   <Minus className="w-3.5 h-3.5" />
-                  <span>Expense</span>
+                  <span>{t(user.language, "expense")}</span>
                 </button>
                 <button
                   type="button"
@@ -171,7 +176,7 @@ export default function AddTransactionModal({ isOpen, onClose, onAdd, defaultTyp
                   }`}
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  <span>Income</span>
+                  <span>{t(user.language, "income")}</span>
                 </button>
               </div>
 
@@ -210,7 +215,7 @@ export default function AddTransactionModal({ isOpen, onClose, onAdd, defaultTyp
               <div className="grid grid-cols-2 gap-4">
                 {/* Category */}
                 <div>
-                  <label className="text-xs font-bold text-outline uppercase tracking-wider mb-1 block ml-0.5">Category</label>
+                  <label className="text-xs font-bold text-outline uppercase tracking-wider mb-1 block ml-0.5">{t(user.language, "category")}</label>
                   <select
                     required
                     value={category}
@@ -226,7 +231,7 @@ export default function AddTransactionModal({ isOpen, onClose, onAdd, defaultTyp
 
                 {/* Payment Method */}
                 <div>
-                  <label className="text-xs font-bold text-outline uppercase tracking-wider mb-1 block ml-0.5">Payment Method</label>
+                  <label className="text-xs font-bold text-outline uppercase tracking-wider mb-1 block ml-0.5">{t(user.language, "paymentMethod")}</label>
                   <select
                     required
                     value={paymentMethod}
@@ -242,7 +247,7 @@ export default function AddTransactionModal({ isOpen, onClose, onAdd, defaultTyp
 
               {/* Notes */}
               <div>
-                <label className="text-xs font-bold text-outline uppercase tracking-wider mb-1 block ml-0.5">Notes (Optional)</label>
+                <label className="text-xs font-bold text-outline uppercase tracking-wider mb-1 block ml-0.5">{t(user.language, "notes")}</label>
                 <textarea 
                   placeholder="Additional transaction info..."
                   rows={2}
@@ -257,7 +262,7 @@ export default function AddTransactionModal({ isOpen, onClose, onAdd, defaultTyp
                 className="w-full bg-primary hover:bg-primary-container text-white font-bold py-3.5 rounded-xl flex items-center justify-center gap-1.5 transition-all text-sm mt-4 cursor-pointer"
               >
                 <Save className="w-4.5 h-4.5" />
-                <span>Save Transaction</span>
+                <span>{t(user.language, "save")}</span>
               </button>
             </form>
           </motion.div>

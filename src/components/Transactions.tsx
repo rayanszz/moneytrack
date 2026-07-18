@@ -5,8 +5,10 @@
 
 import React, { useState, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
+import { t } from "../i18n";
 import { Search, SlidersHorizontal, ReceiptText, ArrowRight, X, Coffee, Home, Briefcase, CreditCard, ChevronRight, CheckCircle, AlertCircle, ShoppingBag, Car, FileUp, Plus } from "lucide-react";
 import { Transaction, User } from "../types";
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 
 interface TransactionsProps {
   user: User;
@@ -26,6 +28,51 @@ export default function Transactions({ user, transactions, onAddTransaction, onO
   const [scanError, setScanError] = useState("");
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Calculations for charts
+  const { totalIncome, totalExpense, expenseData } = React.useMemo(() => {
+    let incomeSum = 0;
+    let expenseSum = 0;
+    const categoryExpenses: { [key: string]: number } = {};
+
+    transactions.forEach(tx => {
+      const amt = Math.abs(tx.amount);
+      if (tx.type === "income") {
+        incomeSum += amt;
+      } else {
+        expenseSum += amt;
+        categoryExpenses[tx.category] = (categoryExpenses[tx.category] || 0) + amt;
+      }
+    });
+
+    const expData = Object.keys(categoryExpenses).map(cat => ({
+      name: cat,
+      value: categoryExpenses[cat],
+    })).sort((a, b) => b.value - a.value);
+
+    return {
+      totalIncome: incomeSum,
+      totalExpense: expenseSum,
+      expenseData: expData,
+    };
+  }, [transactions]);
+
+  const COLORS = ["#10b981", "#3b82f6", "#ea580c", "#8b5cf6", "#e11d48", "#6b7280"];
+
+  const getCategoryLabel = (cat: string) => {
+    if (user.language === "Indonesia") {
+      switch (cat) {
+        case "Food & Dining": return "Makanan & Minuman";
+        case "Rent": return "Sewa Rumah";
+        case "Travel": return "Perjalanan & Mobil";
+        case "Shopping": return "Belanja";
+        case "Utilities": return "Tagihan & Utilitas";
+        case "Miscellaneous": return "Lain-lain";
+        default: return cat;
+      }
+    }
+    return cat;
+  };
 
   // Filter transactions
   const filtered = transactions.filter(tx => {
@@ -265,7 +312,7 @@ export default function Transactions({ user, transactions, onAddTransaction, onO
             </span>
             <input 
               type="text"
-              placeholder="Search transactions..."
+              placeholder={t(user.language, "searchTransactions")}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full bg-[#F3F4F6] text-on-surface rounded-2xl pl-12 pr-4 py-3 border-none focus:ring-2 focus:ring-primary focus:bg-white transition-all font-sans text-sm placeholder:text-outline"
@@ -321,6 +368,154 @@ export default function Transactions({ user, transactions, onAddTransaction, onO
           </div>
         </button>
       </div>
+
+      {/* ANALYTICS BRIEF: PIE CHART & COMPARISON */}
+      <section className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-white rounded-3xl p-6 shadow-[0px_4px_20px_rgba(0,0,0,0.02)] border border-gray-100">
+        
+        {/* PIE CHART - EXPENSE DISTRIBUTION */}
+        <div className="flex flex-col justify-between space-y-4">
+          <div>
+            <h3 className="text-xs font-bold text-outline uppercase tracking-wider mb-1">
+              {user.language === "Indonesia" ? "Distribusi Pengeluaran" : "Expense Distribution"}
+            </h3>
+            <h2 className="text-lg font-bold text-on-surface">
+              {user.language === "Indonesia" ? "Kategori Pengeluaran Terbesar" : "Biggest Spending Categories"}
+            </h2>
+          </div>
+
+          {expenseData.length === 0 ? (
+            <div className="h-40 flex items-center justify-center text-center text-xs text-outline font-semibold bg-gray-50/50 rounded-2xl">
+              {user.language === "Indonesia" ? "Belum ada data pengeluaran." : "No expense data recorded yet."}
+            </div>
+          ) : (
+            <div className="flex flex-col sm:flex-row items-center gap-4">
+              {/* Pie Chart Container */}
+              <div className="w-36 h-36 shrink-0 relative flex items-center justify-center">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={expenseData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={42}
+                      outerRadius={58}
+                      paddingAngle={3}
+                      dataKey="value"
+                    >
+                      {expenseData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      formatter={(value: number) => [formatValue(value), ""]}
+                      contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+                {/* Center total label */}
+                <div className="absolute flex flex-col items-center justify-center pointer-events-none">
+                  <span className="text-[9px] uppercase font-bold text-outline leading-none">Total</span>
+                  <span className="text-xs font-black text-on-surface tabular-nums mt-0.5 leading-none">
+                    {formatValue(totalExpense)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Slices legend list */}
+              <div className="flex-1 space-y-1.5 w-full">
+                {expenseData.slice(0, 4).map((entry, idx) => {
+                  const pct = totalExpense > 0 ? Math.round((entry.value / totalExpense) * 100) : 0;
+                  return (
+                    <div key={entry.name} className="flex justify-between items-center text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: COLORS[idx % COLORS.length] }}></span>
+                        <span className="font-bold text-on-surface truncate max-w-[110px]">{getCategoryLabel(entry.name)}</span>
+                      </div>
+                      <div className="text-right font-semibold">
+                        <span className="text-on-surface font-extrabold mr-1">{formatValue(entry.value)}</span>
+                        <span className="text-[10px] text-outline">({pct}%)</span>
+                      </div>
+                    </div>
+                  );
+                })}
+                {expenseData.length > 4 && (
+                  <p className="text-[9px] text-outline text-right font-bold">
+                    + {expenseData.length - 4} {user.language === "Indonesia" ? "kategori lainnya" : "more categories"}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* COMPARISON CARD - INCOME VS EXPENSE */}
+        <div className="flex flex-col justify-between space-y-4 border-t md:border-t-0 md:border-l border-gray-100 pt-6 md:pt-0 md:pl-6">
+          <div>
+            <h3 className="text-xs font-bold text-outline uppercase tracking-wider mb-1">
+              {user.language === "Indonesia" ? "Arus Kas & Perbandingan" : "Cash Flow & Comparison"}
+            </h3>
+            <h2 className="text-lg font-bold text-on-surface">
+              {user.language === "Indonesia" ? "Pendapatan vs Pengeluaran" : "Income vs Expenses"}
+            </h2>
+          </div>
+
+          <div className="space-y-3.5">
+            {/* Income Metric Row */}
+            <div className="space-y-1">
+              <div className="flex justify-between text-xs">
+                <span className="font-bold text-emerald-700 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                  {user.language === "Indonesia" ? "Total Pendapatan" : "Total Income"}
+                </span>
+                <span className="font-bold text-emerald-800 tabular-nums">{formatValue(totalIncome)}</span>
+              </div>
+              <div className="h-2 w-full bg-emerald-50 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-emerald-500 rounded-full"
+                  style={{ width: `${totalIncome + totalExpense > 0 ? (totalIncome / (totalIncome + totalExpense)) * 100 : 0}%` }}
+                ></div>
+              </div>
+            </div>
+
+            {/* Expense Metric Row */}
+            <div className="space-y-1">
+              <div className="flex justify-between text-xs">
+                <span className="font-bold text-rose-700 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                  {user.language === "Indonesia" ? "Total Pengeluaran" : "Total Expenses"}
+                </span>
+                <span className="font-bold text-rose-800 tabular-nums">{formatValue(totalExpense)}</span>
+              </div>
+              <div className="h-2 w-full bg-rose-50 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-rose-500 rounded-full"
+                  style={{ width: `${totalIncome + totalExpense > 0 ? (totalExpense / (totalIncome + totalExpense)) * 100 : 0}%` }}
+                ></div>
+              </div>
+            </div>
+
+            {/* Net Cash Flow Box */}
+            <div className={`p-3 rounded-2xl flex justify-between items-center ${totalIncome >= totalExpense ? "bg-emerald-50/40 border border-emerald-100" : "bg-rose-50/40 border border-rose-100"}`}>
+              <div>
+                <span className="text-[9px] font-bold text-outline uppercase tracking-wider block leading-none mb-1">
+                  {user.language === "Indonesia" ? "Sisa Arus Kas Bersih" : "Net Cash Flow Balance"}
+                </span>
+                <span className={`text-sm font-black ${totalIncome >= totalExpense ? "text-emerald-800" : "text-rose-800"}`}>
+                  {totalIncome >= totalExpense ? "+" : "-"}{formatValue(Math.abs(totalIncome - totalExpense))}
+                </span>
+              </div>
+              <div className="text-right">
+                <span className="text-[9px] font-bold text-outline uppercase tracking-wider block leading-none mb-1">
+                  {user.language === "Indonesia" ? "Rasio Menabung" : "Savings Rate"}
+                </span>
+                <span className={`text-xs font-extrabold ${totalIncome >= totalExpense ? "text-emerald-700" : "text-rose-700"}`}>
+                  {totalIncome > 0 ? Math.round(((totalIncome - totalExpense) / totalIncome) * 100) : 0}%
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* TABS */}
       <div className="flex gap-2 border-b border-gray-200 pb-1">
@@ -418,8 +613,8 @@ export default function Transactions({ user, transactions, onAddTransaction, onO
                     }`}
                   >
                     <FileUp className="w-12 h-12 text-outline mb-4" />
-                    <h4 className="text-sm font-bold text-on-surface">Upload your receipt photo</h4>
-                    <p className="text-xs text-outline font-semibold mt-1">Drag & drop or click to browse (PNG, JPG)</p>
+                    <h4 className="text-sm font-bold text-on-surface">{t(user.language, "uploadReceiptPhoto")}</h4>
+                    <p className="text-xs text-outline font-semibold mt-1">{t(user.language, "dragDrop")}</p>
                     <input 
                       type="file"
                       ref={fileInputRef}

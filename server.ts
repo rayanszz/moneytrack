@@ -21,9 +21,9 @@ const scanLimiter = rateLimit({
   message: { error: "Too many scan requests from this IP, please try again after 15 minutes", isFallback: true }
 });
 
-// Increase request payload limit for image uploads
-app.use(express.json({ limit: "15mb" }));
-app.use(express.urlencoded({ limit: "15mb", extended: true }));
+// Increase request payload limit for image uploads to support high-res camera photos
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
 // Initialize Gemini client if API key is present
 let ai: GoogleGenAI | null = null;
@@ -69,18 +69,25 @@ app.post("/api/scan-receipt", scanLimiter, async (req, res) => {
       "6. Payment method used (e.g. 'Chase Visa', 'Amex Platinum', 'Cash', 'Checking Acct')" +
       "7. A brief list of item descriptions (array of strings)";
 
-    console.log("Calling Gemini API model gemini-3.5-flash for OCR...");
+    console.log("Calling Gemini API model gemini-2.5-flash for OCR...");
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
+      model: "gemini-2.5-flash",
       contents: [
         {
-          inlineData: {
-            mimeType: mimeType || "image/jpeg",
-            data: base64Data,
-          },
-        },
-        prompt
+          role: "user",
+          parts: [
+            {
+              inlineData: {
+                mimeType: mimeType || "image/jpeg",
+                data: base64Data,
+              },
+            },
+            {
+              text: prompt
+            }
+          ]
+        }
       ],
       config: {
         responseMimeType: "application/json",

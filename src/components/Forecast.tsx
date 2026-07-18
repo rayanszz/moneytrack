@@ -7,6 +7,7 @@ import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { TrendingUp, Percent, Landmark, Calendar, Lightbulb, Save, Trash2, CheckCircle } from "lucide-react";
 import { ForecastScenario, User } from "../types";
+import { t } from "../i18n";
 
 interface ForecastProps {
   user: User;
@@ -75,9 +76,11 @@ export default function Forecast({ user, initialPrincipal, savedScenarios, onSav
 
   // Dynamic Insight Calculation (master level details)
   const [insightDiff, setInsightDiff] = useState(0);
+  const insightIncreaseAmount = user.currency === 'IDR' ? 500000 : 200;
+  
   useEffect(() => {
     // Calculate final value with additional contribution
-    const PMT_more = monthlyContribution + 200;
+    const PMT_more = monthlyContribution + insightIncreaseAmount;
     const P = principal;
     const r = expectedYield / 100;
     const t = timeHorizon;
@@ -90,7 +93,7 @@ export default function Forecast({ user, initialPrincipal, savedScenarios, onSav
     }
 
     setInsightDiff(Math.max(0, currentBalance - results.estimatedFutureWealth));
-  }, [principal, monthlyContribution, expectedYield, timeHorizon, results.estimatedFutureWealth]);
+  }, [principal, monthlyContribution, expectedYield, timeHorizon, results.estimatedFutureWealth, insightIncreaseAmount]);
 
   // Format currencies
   const formatValue = (val: number, isCompact = false) => {
@@ -160,7 +163,7 @@ export default function Forecast({ user, initialPrincipal, savedScenarios, onSav
     <div className="space-y-6">
       {/* TITLE CONTAINER */}
       <div>
-        <h1 className="text-3xl font-bold text-primary tracking-tight" id="forecast-title">Future Forecast</h1>
+        <h1 className="text-3xl font-bold text-primary tracking-tight" id="forecast-title">{t(user.language, "futureWealthForecast")}</h1>
         <p className="text-sm font-semibold text-outline mt-0.5">Visualize your compound wealth generation</p>
       </div>
 
@@ -337,7 +340,7 @@ export default function Forecast({ user, initialPrincipal, savedScenarios, onSav
                   <span className="font-bold tabular-nums">{formatValue(results.totalContributions)}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="opacity-75">Estimated Returns</span>
+                  <span className="opacity-75">{t(user.language, "estimatedReturns")}</span>
                   <span className="font-bold text-emerald-300 tabular-nums">{formatValue(results.estimatedReturns)}</span>
                 </div>
               </div>
@@ -348,7 +351,7 @@ export default function Forecast({ user, initialPrincipal, savedScenarios, onSav
               className="w-full mt-6 bg-white hover:bg-emerald-50 text-primary font-bold py-3.5 rounded-xl transition-all active:scale-95 shadow-sm flex items-center justify-center gap-2 cursor-pointer relative z-10 text-sm"
             >
               <Save className="w-4.5 h-4.5" />
-              <span>Save Scenario</span>
+              <span>{t(user.language, "saveScenario")}</span>
             </button>
           </div>
 
@@ -358,9 +361,9 @@ export default function Forecast({ user, initialPrincipal, savedScenarios, onSav
               <Lightbulb className="w-5 h-5" />
             </div>
             <div>
-              <h4 className="text-sm font-bold text-on-surface mb-0.5">Actionable Insight</h4>
+              <h4 className="text-sm font-bold text-on-surface mb-0.5">{t(user.language, "actionableInsight")}</h4>
               <p className="text-xs font-medium text-on-surface-variant leading-relaxed">
-                Increasing your monthly contribution by $200 could add an estimated <strong className="text-primary font-bold">{formatValue(insightDiff)}</strong> to your final balance.
+                {t(user.language, "insightDescription").replace("{amount}", formatValue(insightIncreaseAmount))} <strong className="text-primary font-bold">{formatValue(insightDiff)}</strong> {t(user.language, "insightDescriptionEnd")}
               </p>
             </div>
           </div>
