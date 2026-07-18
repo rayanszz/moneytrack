@@ -30,6 +30,11 @@ export default function SignIn({ onSuccess }: SignInProps) {
       return;
     }
 
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters.");
+      return;
+    }
+
     if (isSignUp && !name) {
       setError("Please enter your name.");
       return;
@@ -52,6 +57,8 @@ export default function SignIn({ onSuccess }: SignInProps) {
         setError("Email belum terdaftar atau password salah.");
       } else if (err.code === "auth/email-already-in-use") {
         setError("Email ini sudah terdaftar. Silakan Sign In.");
+      } else if (err.code === "auth/weak-password") {
+        setError("Password terlalu lemah, minimal 6 karakter.");
       } else {
         setError("Terjadi kesalahan saat autentikasi. Coba lagi.");
       }

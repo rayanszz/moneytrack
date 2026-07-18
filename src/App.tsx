@@ -215,6 +215,10 @@ export default function App() {
             user={user}
             transactions={transactions}
             onAddTransaction={handleAddTransaction}
+            onOpenAddTransaction={(type) => {
+              setAddTxDefaultType(type);
+              setIsAddTransactionOpen(true);
+            }}
           />
         );
       case "portfolio":

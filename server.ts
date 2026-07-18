@@ -5,14 +5,21 @@
 
 import express from "express";
 import path from "path";
-import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
+import rateLimit from "express-rate-limit";
 
 dotenv.config();
 
 const app = express();
 const PORT = 3000;
+
+// Rate limiting for the AI endpoint
+const scanLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20, // limit each IP to 20 requests per windowMs
+  message: { error: "Too many scan requests from this IP, please try again after 15 minutes", isFallback: true }
+});
 
 // Increase request payload limit for image uploads
 app.use(express.json({ limit: "15mb" }));
@@ -35,7 +42,7 @@ if (process.env.GEMINI_API_KEY) {
 }
 
 // API Route: Scan Receipt
-app.post("/api/scan-receipt", async (req, res) => {
+app.post("/api/scan-receipt", scanLimiter, async (req, res) => {
   try {
     const { imageBase64, mimeType } = req.body;
 
@@ -96,12 +103,21 @@ app.post("/api/scan-receipt", async (req, res) => {
       }
     });
 
-    const textResult = response.text;
+    let textResult = response.text || "";
     if (!textResult) {
       throw new Error("Empty response received from Gemini.");
     }
+    // Clean up potential markdown formatting from AI response
+    textResult = textResult.replace(/^```json\s*/i, "").replace(/```\s*$/i, "").trim();
 
-    const parsedData = JSON.parse(textResult.trim());
+    let parsedData;
+    try {
+      parsedData = JSON.parse(textResult);
+    } catch (parseError) {
+      console.error("Failed to parse JSON from AI response:", textResult);
+      throw new Error("Invalid response format from AI");
+    }
+
     console.log("Extracted transaction data successfully:", parsedData);
     
     return res.json(parsedData);
@@ -117,6 +133,7 @@ app.post("/api/scan-receipt", async (req, res) => {
 // Setup dev server or static serving
 async function startServer() {
   if (process.env.NODE_ENV !== "production") {
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
