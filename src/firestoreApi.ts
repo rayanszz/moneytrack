@@ -101,6 +101,12 @@ export async function updateAssetInFirestore(userId: string, asset: Asset) {
   await setDoc(ref, data);
 }
 
+export async function deleteAssetFromFirestore(userId: string, assetId: string) {
+  const { deleteDoc } = await import("firebase/firestore");
+  const ref = doc(collection(db, "users", userId, "assets"), assetId);
+  await deleteDoc(ref);
+}
+
 export async function addScenarioToFirestore(userId: string, sc: ForecastScenario) {
   const { id, ...data } = sc;
   const ref = doc(collection(db, "users", userId, "scenarios"), id);

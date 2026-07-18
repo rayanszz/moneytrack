@@ -190,17 +190,21 @@ export default function AddTransactionModal({ isOpen, onClose, onAdd, defaultTyp
 
               {/* Amount */}
               <div>
-                <label className="text-xs font-bold text-outline uppercase tracking-wider mb-1 block ml-0.5">Amount ($)</label>
-                <input 
-                  type="number"
-                  step="0.01"
-                  min="0.01"
-                  required
-                  placeholder="0.00"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  className="w-full bg-[#F3F4F6] text-on-surface rounded-xl px-4 py-2.5 border-none focus:ring-2 focus:ring-primary focus:bg-white focus:outline-none transition-all text-sm font-bold tracking-tight"
-                />
+                <label className="text-xs font-bold text-outline uppercase tracking-wider mb-1 block ml-0.5">Amount ({user.currency})</label>
+                <div className="flex items-center bg-[#F3F4F6] rounded-xl focus-within:ring-2 focus-within:ring-primary focus-within:bg-white transition-all overflow-hidden">
+                  <span className="pl-4 font-bold text-outline select-none">{user.currency === 'IDR' ? 'Rp' : '$'}</span>
+                  <input 
+                    type="text"
+                    required
+                    placeholder="0"
+                    value={amount === "" || amount === "0" ? "" : new Intl.NumberFormat(user.currency === 'IDR' ? 'id-ID' : 'en-US').format(Number(amount))}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value.replace(/\D/g, ''));
+                      setAmount(isNaN(val) ? "" : val.toString());
+                    }}
+                    className="w-full bg-transparent px-3 py-2.5 border-none focus:outline-none text-sm font-bold tracking-tight"
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">

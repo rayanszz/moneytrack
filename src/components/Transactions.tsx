@@ -62,9 +62,11 @@ export default function Transactions({ user, transactions, onAddTransaction, onO
 
   // Format currency
   const formatValue = (val: number) => {
-    return new Intl.NumberFormat("en-US", {
+    const locale = user.currency === 'IDR' ? 'id-ID' : 'en-US';
+    return new Intl.NumberFormat(locale, {
       style: "currency",
       currency: user.currency,
+      maximumFractionDigits: 0,
     }).format(val);
   };
 

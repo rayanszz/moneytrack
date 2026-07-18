@@ -24,6 +24,7 @@ import {
   saveUserSettingToFirestore, 
   addTransactionToFirestore, 
   updateAssetInFirestore,
+  deleteAssetFromFirestore,
   addScenarioToFirestore,
   deleteScenarioFromFirestore
 } from "./firestoreApi";
@@ -106,6 +107,14 @@ export default function App() {
     }
   };
 
+  // Budget Updater
+  const handleUpdateBudget = async (newLimit: number) => {
+    if (!userId || !user) return;
+    const newBudget = { ...budget, limit: newLimit };
+    setBudget(newBudget);
+    await saveUserSettingToFirestore(userId, user, newBudget);
+  };
+
   // Add Transaction Handler
   const handleAddTransaction = async (newTx: Omit<Transaction, "id">) => {
     if (!user || !userId) return;
@@ -148,6 +157,49 @@ export default function App() {
       return asset;
     });
     setAssets(fullyUpdatedAssets);
+  };
+
+  // Asset Handlers
+  const handleAddAsset = async (newAsset: Omit<Asset, "id">) => {
+    if (!user || !userId) return;
+    const asset: Asset = { ...newAsset, id: `ast-${Date.now()}` };
+    const updatedAssets = [...assets, asset];
+    // Recompute allocations
+    const total = updatedAssets.reduce((acc, a) => acc + a.value, 0);
+    const finalAssets = updatedAssets.map(a => ({
+      ...a,
+      allocationPercent: total > 0 ? Math.round((a.value / total) * 100) : 0
+    }));
+    setAssets(finalAssets);
+    await updateAssetInFirestore(userId, asset);
+    // Note: We should ideally update all allocations in firestore too, but for now we just save the new one and compute dynamically
+  };
+
+  const handleUpdateAsset = async (updatedAsset: Asset) => {
+    if (!user || !userId) return;
+    const idx = assets.findIndex(a => a.id === updatedAsset.id);
+    if (idx === -1) return;
+    const newAssets = [...assets];
+    newAssets[idx] = updatedAsset;
+    const total = newAssets.reduce((acc, a) => acc + a.value, 0);
+    const finalAssets = newAssets.map(a => ({
+      ...a,
+      allocationPercent: total > 0 ? Math.round((a.value / total) * 100) : 0
+    }));
+    setAssets(finalAssets);
+    await updateAssetInFirestore(userId, updatedAsset);
+  };
+
+  const handleDeleteAsset = async (assetId: string) => {
+    if (!user || !userId) return;
+    const newAssets = assets.filter(a => a.id !== assetId);
+    const total = newAssets.reduce((acc, a) => acc + a.value, 0);
+    const finalAssets = newAssets.map(a => ({
+      ...a,
+      allocationPercent: total > 0 ? Math.round((a.value / total) * 100) : 0
+    }));
+    setAssets(finalAssets);
+    await deleteAssetFromFirestore(userId, assetId);
   };
 
   // Save scenario Forecast handler
@@ -202,11 +254,13 @@ export default function App() {
             user={user}
             transactions={transactions}
             budget={budget}
+            assets={assets}
             onNavigateToTab={(tab) => setActiveTab(tab)}
             onOpenAddTransaction={(type) => {
               setAddTxDefaultType(type);
               setIsAddTransactionOpen(true);
             }}
+            onUpdateBudget={handleUpdateBudget}
           />
         );
       case "transactions":
@@ -226,6 +280,10 @@ export default function App() {
           <Portfolio 
             user={user}
             assets={assets}
+            transactions={transactions}
+            onAddAsset={handleAddAsset}
+            onUpdateAsset={handleUpdateAsset}
+            onDeleteAsset={handleDeleteAsset}
           />
         );
       case "forecast":

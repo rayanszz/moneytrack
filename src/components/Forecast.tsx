@@ -17,8 +17,15 @@ interface ForecastProps {
 }
 
 export default function Forecast({ user, initialPrincipal, savedScenarios, onSaveScenario, onDeleteScenario }: ForecastProps) {
+  const [principal, setPrincipal] = useState(initialPrincipal);
   const [monthlyContribution, setMonthlyContribution] = useState(1500);
   const [expectedYield, setExpectedYield] = useState(7.5);
+
+  // Sync initial principal if it changes from props (only once or if they reset)
+  useEffect(() => {
+    setPrincipal(initialPrincipal);
+  }, [initialPrincipal]);
+
   const [timeHorizon, setTimeHorizon] = useState(20);
   const [scenarioName, setScenarioName] = useState("");
   const [showSaveModal, setShowSaveModal] = useState(false);
@@ -34,9 +41,9 @@ export default function Forecast({ user, initialPrincipal, savedScenarios, onSav
 
   // Calculate compound interest path
   useEffect(() => {
-    const P = initialPrincipal; // Principal
+    const P = principal; // Principal
     const PMT = monthlyContribution; // Monthly contribution
-    const r = expectedYield / 100; // Annual yield
+    const r = expectedYield / 100; // Monthly yield
     const t = timeHorizon; // Time horizon in years
     const n = 12; // Compounded monthly
 
@@ -47,13 +54,11 @@ export default function Forecast({ user, initialPrincipal, savedScenarios, onSav
     path.push({ year: 0, value: P });
 
     for (let year = 1; year <= t; year++) {
-      // Future value of principal for 1 year
-      const fvPrincipal = currentBalance * Math.pow(1 + r/n, n);
-      
-      // Future value of monthly contributions for 1 year
-      const fvAnnuity = PMT * ((Math.pow(1 + r/n, n) - 1) / (r/n)) * (1 + r/n);
-      
-      currentBalance = fvPrincipal + fvAnnuity;
+      let balanceForYear = currentBalance;
+      for (let month = 1; month <= 12; month++) {
+        balanceForYear = (balanceForYear + PMT) * (1 + r);
+      }
+      currentBalance = balanceForYear;
       path.push({ year, value: currentBalance });
     }
 
@@ -66,35 +71,39 @@ export default function Forecast({ user, initialPrincipal, savedScenarios, onSav
       estimatedFutureWealth: currentBalance,
       yearlyPath: path
     });
-  }, [initialPrincipal, monthlyContribution, expectedYield, timeHorizon]);
+  }, [principal, monthlyContribution, expectedYield, timeHorizon]);
 
   // Dynamic Insight Calculation (master level details)
   const [insightDiff, setInsightDiff] = useState(0);
   useEffect(() => {
-    // Calculate final value with $200 more
+    // Calculate final value with additional contribution
     const PMT_more = monthlyContribution + 200;
-    const P = initialPrincipal;
+    const P = principal;
     const r = expectedYield / 100;
     const t = timeHorizon;
-    const n = 12;
 
     let currentBalance = P;
     for (let year = 1; year <= t; year++) {
-      const fvPrincipal = currentBalance * Math.pow(1 + r/n, n);
-      const fvAnnuity = PMT_more * ((Math.pow(1 + r/n, n) - 1) / (r/n)) * (1 + r/n);
-      currentBalance = fvPrincipal + fvAnnuity;
+      for (let month = 1; month <= 12; month++) {
+        currentBalance = (currentBalance + PMT_more) * (1 + r);
+      }
     }
 
     setInsightDiff(Math.max(0, currentBalance - results.estimatedFutureWealth));
-  }, [initialPrincipal, monthlyContribution, expectedYield, timeHorizon, results.estimatedFutureWealth]);
+  }, [principal, monthlyContribution, expectedYield, timeHorizon, results.estimatedFutureWealth]);
 
   // Format currencies
   const formatValue = (val: number, isCompact = false) => {
+    const locale = user.currency === 'IDR' ? 'id-ID' : 'en-US';
     if (isCompact) {
-      if (val >= 1000000) return `$${(val / 1000000).toFixed(2)}M`;
-      if (val >= 1000) return `$${(val / 1000).toFixed(0)}K`;
+      if (val >= 1000000) {
+        return new Intl.NumberFormat(locale, { style: "currency", currency: user.currency, maximumFractionDigits: 2 }).format(val / 1000000) + 'M';
+      }
+      if (val >= 1000) {
+        return new Intl.NumberFormat(locale, { style: "currency", currency: user.currency, maximumFractionDigits: 0 }).format(val / 1000) + 'K';
+      }
     }
-    return new Intl.NumberFormat("en-US", {
+    return new Intl.NumberFormat(locale, {
       style: "currency",
       currency: user.currency,
       maximumFractionDigits: 0,
@@ -134,7 +143,7 @@ export default function Forecast({ user, initialPrincipal, savedScenarios, onSav
   const chartHeight = 160;
   const chartWidth = 500;
   const maxVal = Math.max(...results.yearlyPath.map(d => d.value), 1000);
-  const minVal = initialPrincipal;
+  const minVal = principal;
 
   const points = results.yearlyPath.map((d, index) => {
     const x = (index / timeHorizon) * chartWidth;
@@ -224,6 +233,28 @@ export default function Forecast({ user, initialPrincipal, savedScenarios, onSav
           {/* SLIDER CONTROLS BENTO GRID */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             
+            {/* INITIAL PRINCIPAL */}
+            <div className="bg-white rounded-3xl p-5 shadow-[0px_4px_20px_rgba(0,0,0,0.02)] border border-gray-100 flex flex-col justify-between gap-3">
+              <div className="flex justify-between items-center">
+                <label className="text-xs font-bold text-outline uppercase tracking-wider flex items-center gap-1.5 select-none">
+                  <Landmark className="w-4 h-4 text-primary" />
+                  Initial Principal
+                </label>
+              </div>
+              <div className="flex items-center bg-surface-container-lowest border border-gray-200 rounded-xl overflow-hidden focus-within:border-primary transition-colors">
+                <span className="pl-3 font-bold text-outline select-none">{user.currency === 'IDR' ? 'Rp' : '$'}</span>
+                <input 
+                  type="text"
+                  value={principal === 0 ? '' : new Intl.NumberFormat(user.currency === 'IDR' ? 'id-ID' : 'en-US').format(principal)}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value.replace(/\D/g, ''));
+                    setPrincipal(isNaN(val) ? 0 : val);
+                  }}
+                  className="w-full text-lg font-bold text-primary font-sans tabular-nums bg-transparent p-2 outline-none"
+                />
+              </div>
+            </div>
+
             {/* MONTHLY CONTRIBUTION */}
             <div className="bg-white rounded-3xl p-5 shadow-[0px_4px_20px_rgba(0,0,0,0.02)] border border-gray-100 flex flex-col justify-between gap-3">
               <div className="flex justify-between items-center">
@@ -231,20 +262,18 @@ export default function Forecast({ user, initialPrincipal, savedScenarios, onSav
                   <Landmark className="w-4 h-4 text-primary" />
                   Monthly Savings
                 </label>
-                <span className="text-lg font-bold text-primary font-sans tabular-nums">{formatValue(monthlyContribution)}</span>
               </div>
-              <input 
-                type="range"
-                min="0"
-                max="5000"
-                step="100"
-                value={monthlyContribution}
-                onChange={(e) => setMonthlyContribution(Number(e.target.value))}
-                className="w-full cursor-pointer"
-              />
-              <div className="flex justify-between text-[10px] font-bold text-outline/60 select-none">
-                <span>$0</span>
-                <span>$5,000</span>
+              <div className="flex items-center bg-surface-container-lowest border border-gray-200 rounded-xl overflow-hidden focus-within:border-primary transition-colors">
+                <span className="pl-3 font-bold text-outline select-none">{user.currency === 'IDR' ? 'Rp' : '$'}</span>
+                <input 
+                  type="text"
+                  value={monthlyContribution === 0 ? '' : new Intl.NumberFormat(user.currency === 'IDR' ? 'id-ID' : 'en-US').format(monthlyContribution)}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value.replace(/\D/g, ''));
+                    setMonthlyContribution(isNaN(val) ? 0 : val);
+                  }}
+                  className="w-full text-lg font-bold text-primary font-sans tabular-nums bg-transparent p-2 outline-none"
+                />
               </div>
             </div>
 
@@ -253,46 +282,40 @@ export default function Forecast({ user, initialPrincipal, savedScenarios, onSav
               <div className="flex justify-between items-center">
                 <label className="text-xs font-bold text-outline uppercase tracking-wider flex items-center gap-1.5 select-none">
                   <Percent className="w-4 h-4 text-[#fe932c]" />
-                  Expected Yield
+                  Expected Yield / Month
                 </label>
-                <span className="text-lg font-bold text-primary font-sans tabular-nums">{expectedYield}%</span>
               </div>
-              <input 
-                type="range"
-                min="1"
-                max="15"
-                step="0.1"
-                value={expectedYield}
-                onChange={(e) => setExpectedYield(Number(e.target.value))}
-                className="w-full cursor-pointer"
-              />
-              <div className="flex justify-between text-[10px] font-bold text-outline/60 select-none">
-                <span>1%</span>
-                <span>15%</span>
+              <div className="flex items-center bg-surface-container-lowest border border-gray-200 rounded-xl overflow-hidden focus-within:border-primary transition-colors">
+                <input 
+                  type="number"
+                  step="0.01"
+                  value={expectedYield}
+                  onChange={(e) => setExpectedYield(Number(e.target.value))}
+                  className="w-full text-lg font-bold text-primary font-sans tabular-nums p-2 outline-none bg-transparent"
+                />
+                <span className="pr-3 font-bold text-outline">%</span>
               </div>
             </div>
 
             {/* TIME HORIZON */}
-            <div className="md:col-span-2 bg-white rounded-3xl p-5 shadow-[0px_4px_20px_rgba(0,0,0,0.02)] border border-gray-100 flex flex-col justify-between gap-3">
+            <div className="bg-white rounded-3xl p-5 shadow-[0px_4px_20px_rgba(0,0,0,0.02)] border border-gray-100 flex flex-col justify-between gap-3">
               <div className="flex justify-between items-center">
                 <label className="text-xs font-bold text-outline uppercase tracking-wider flex items-center gap-1.5 select-none">
                   <Calendar className="w-4 h-4 text-[#2b6954]" />
                   Time Horizon
                 </label>
-                <span className="text-lg font-bold text-primary font-sans tabular-nums">{timeHorizon} Years</span>
               </div>
-              <input 
-                type="range"
-                min="5"
-                max="40"
-                step="1"
-                value={timeHorizon}
-                onChange={(e) => setTimeHorizon(Number(e.target.value))}
-                className="w-full cursor-pointer"
-              />
-              <div className="flex justify-between text-[10px] font-bold text-outline/60 select-none">
-                <span>5 Yrs</span>
-                <span>40 Yrs</span>
+              <div className="flex items-center bg-surface-container-lowest border border-gray-200 rounded-xl overflow-hidden focus-within:border-primary transition-colors">
+                <input 
+                  type="number"
+                  min="1"
+                  max="20"
+                  step="1"
+                  value={timeHorizon}
+                  onChange={(e) => setTimeHorizon(Number(e.target.value))}
+                  className="w-full text-lg font-bold text-primary font-sans tabular-nums p-2 outline-none bg-transparent"
+                />
+                <span className="pr-3 font-bold text-outline">Yrs</span>
               </div>
             </div>
           </div>

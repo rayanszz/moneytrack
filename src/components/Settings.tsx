@@ -211,9 +211,7 @@ export default function Settings({ user, onUpdateUser, onLogout, onBack }: Setti
               className="bg-[#F3F4F6] text-on-surface font-semibold text-xs px-3 py-1.5 rounded-xl border-none focus:ring-1 focus:ring-primary focus:bg-white focus:outline-none transition-all"
             >
               <option value="USD">USD ($)</option>
-              <option value="EUR">EUR (€)</option>
               <option value="IDR">IDR (Rp)</option>
-              <option value="GBP">GBP (£)</option>
             </select>
           </div>
 
@@ -232,7 +230,6 @@ export default function Settings({ user, onUpdateUser, onLogout, onBack }: Setti
             >
               <option value="English">English</option>
               <option value="Indonesia">Bahasa Indonesia</option>
-              <option value="Spanish">Español</option>
             </select>
           </div>
 
