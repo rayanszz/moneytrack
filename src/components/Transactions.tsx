@@ -16,8 +16,8 @@ interface TransactionsProps {
   transactions: Transaction[];
   onAddTransaction: (tx: Omit<Transaction, "id">) => void;
   onUpdateTransaction: (tx: Transaction) => void;
-  onDeleteTransaction: (txId: string) => void;
   onOpenAddTransaction: (type: "income" | "expense") => void;
+  assets: Asset[];
 }
 
 export default function Transactions({ 
@@ -26,7 +26,8 @@ export default function Transactions({
   onAddTransaction, 
   onUpdateTransaction, 
   onDeleteTransaction, 
-  onOpenAddTransaction 
+  onOpenAddTransaction,
+  assets
 }: TransactionsProps) {
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState<"All" | "Income" | "Expense">("All");
@@ -44,10 +45,9 @@ export default function Transactions({
   const [editMerchant, setEditMerchant] = useState("");
   const [editAmount, setEditAmount] = useState("");
   const [editCategory, setEditCategory] = useState("");
-  const [editType, setEditType] = useState<"income" | "expense">("expense");
   const [editDate, setEditDate] = useState("");
   const [editTime, setEditTime] = useState("");
-  const [editPaymentMethod, setEditPaymentMethod] = useState("");
+  const [editAccountId, setEditAccountId] = useState("");
   const [editNotes, setEditNotes] = useState("");
 
   const startEditingTx = (tx: Transaction) => {
@@ -58,7 +58,7 @@ export default function Transactions({
     setEditType(tx.type);
     setEditDate(tx.date);
     setEditTime(tx.time);
-    setEditPaymentMethod(tx.paymentMethod);
+    setEditAccountId(tx.accountId || "");
     setEditNotes(tx.notes || "");
   };
 
@@ -74,7 +74,8 @@ export default function Transactions({
       type: editType,
       date: editDate,
       time: editTime,
-      paymentMethod: editPaymentMethod,
+      paymentMethod: assets.find(a => a.id === editAccountId)?.name || "Cash",
+      accountId: editAccountId,
       notes: editNotes.trim() || undefined
     });
 
@@ -594,7 +595,7 @@ export default function Transactions({
                       <div className="flex flex-col">
                         <span className="font-bold text-sm text-on-surface leading-snug">{tx.merchant}</span>
                         <span className="text-xs text-on-surface-variant font-medium leading-snug">
-                          {tx.time} • {tx.paymentMethod}
+                          {tx.time} • {assets.find(a => a.id === tx.accountId)?.name || tx.paymentMethod}
                         </span>
                       </div>
                     </div>
@@ -836,14 +837,11 @@ export default function Transactions({
                   <div className="flex items-center bg-[#F3F4F6] rounded-xl focus-within:ring-2 focus-within:ring-primary focus-within:bg-white transition-all overflow-hidden">
                     <span className="pl-4 font-bold text-outline select-none">{user.currency === 'IDR' ? 'Rp' : '$'}</span>
                     <input 
-                      type="text"
+                      type="number"
                       required
                       placeholder="0"
-                      value={editAmount === "" || editAmount === "0" ? "" : new Intl.NumberFormat(user.currency === 'IDR' ? 'id-ID' : 'en-US').format(Number(editAmount))}
-                      onChange={(e) => {
-                        const val = parseInt(e.target.value.replace(/\D/g, ''));
-                        setEditAmount(isNaN(val) ? "" : val.toString());
-                      }}
+                      value={editAmount}
+                      onChange={(e) => setEditAmount(e.target.value)}
                       className="w-full bg-transparent px-3 py-2.5 border-none focus:outline-none text-sm font-bold tracking-tight"
                     />
                   </div>
@@ -897,19 +895,20 @@ export default function Transactions({
                     </select>
                   </div>
 
-                  {/* Payment Method */}
+                  {/* Account / Asset */}
                   <div>
                     <label className="text-xs font-bold text-outline uppercase tracking-wider mb-1 block ml-0.5">
-                      {t(user.language, "paymentMethod")}
+                      {user.language === "Indonesia" ? "Akun Sumber/Tujuan" : "Account"}
                     </label>
                     <select
                       required
-                      value={editPaymentMethod}
-                      onChange={(e) => setEditPaymentMethod(e.target.value)}
+                      value={editAccountId}
+                      onChange={(e) => setEditAccountId(e.target.value)}
                       className="w-full bg-[#F3F4F6] text-on-surface rounded-xl px-3 py-2.5 border-none focus:ring-2 focus:ring-primary focus:bg-white focus:outline-none transition-all text-xs font-bold"
                     >
-                      {paymentMethods.map(pm => (
-                        <option key={pm} value={pm}>{pm}</option>
+                      <option value="" disabled>Choose...</option>
+                      {assets.map(ast => (
+                        <option key={ast.id} value={ast.id}>{ast.name}</option>
                       ))}
                     </select>
                   </div>

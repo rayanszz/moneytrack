@@ -25,6 +25,7 @@ export interface Transaction {
   type: 'income' | 'expense';
   items?: string[];
   notes?: string;
+  accountId?: string; // Links to the specific Asset ID
 }
 
 export interface Asset {

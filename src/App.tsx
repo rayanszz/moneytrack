@@ -122,7 +122,7 @@ export default function App() {
     if (!user || !userId) return;
     const txWithId: Transaction = {
       ...newTx,
-      id: `tx-${Date.now()}`
+      id: `tx-${Date.now()}-${Math.floor(Math.random() * 1000)}`
     };
 
     const updatedTxs = [txWithId, ...transactions];
@@ -139,19 +139,19 @@ export default function App() {
       await saveUserSettingToFirestore(userId, user, updatedBudget);
     }
 
-    // Dynamic asset distribution recalculation: Update Cash Asset or allocation value based on transaction
+    // Dynamic asset distribution recalculation: Update targeted Asset
     const updatedAssets = [...assets];
-    let cashAsset = updatedAssets.find(a => a.type === "Cash");
-    if (cashAsset) {
-      const newCashValue = Math.max(0, cashAsset.value + (newTx.type === "income" ? Math.abs(newTx.amount) : -Math.abs(newTx.amount)));
-      cashAsset.value = newCashValue;
+    let targetAsset = updatedAssets.find(a => a.id === newTx.accountId);
+    if (targetAsset) {
+      const netAmount = newTx.type === "income" ? Math.abs(newTx.amount) : -Math.abs(newTx.amount);
+      targetAsset.value = Math.max(0, targetAsset.value + netAmount);
     }
 
     // Recompute total allocations percentages
     const totalAssetVal = updatedAssets.reduce((acc, a) => acc + a.value, 0);
     const fullyUpdatedAssets = updatedAssets.map(asset => {
       const newAllocation = totalAssetVal > 0 ? Math.round((asset.value / totalAssetVal) * 100) : 0;
-      if (asset.allocationPercent !== newAllocation || (cashAsset && asset.id === cashAsset.id)) {
+      if (asset.allocationPercent !== newAllocation || (targetAsset && asset.id === targetAsset.id)) {
          const updatedAsset = { ...asset, allocationPercent: newAllocation };
          updateAssetInFirestore(userId, updatedAsset).catch(console.error);
          return updatedAsset;
@@ -188,23 +188,29 @@ export default function App() {
       await saveUserSettingToFirestore(userId, user, updatedBudget);
     }
 
-    // Calculate cash asset adjustment
-    const oldCashEffect = oldTx.type === "income" ? Math.abs(oldTx.amount) : -Math.abs(oldTx.amount);
-    const newCashEffect = updatedTx.type === "income" ? Math.abs(updatedTx.amount) : -Math.abs(updatedTx.amount);
-    const diffCash = newCashEffect - oldCashEffect;
-
+    // Calculate asset adjustment
     const updatedAssets = [...assets];
-    let cashAsset = updatedAssets.find(a => a.type === "Cash");
-    if (cashAsset && diffCash !== 0) {
-      const newCashValue = Math.max(0, cashAsset.value + diffCash);
-      cashAsset.value = newCashValue;
+    
+    // Reverse old transaction effect
+    let oldAsset = updatedAssets.find(a => a.id === oldTx.accountId);
+    if (oldAsset) {
+      const oldNet = oldTx.type === "income" ? Math.abs(oldTx.amount) : -Math.abs(oldTx.amount);
+      oldAsset.value = Math.max(0, oldAsset.value - oldNet);
+    }
+
+    // Apply new transaction effect
+    let newAsset = updatedAssets.find(a => a.id === updatedTx.accountId);
+    if (newAsset) {
+      const newNet = updatedTx.type === "income" ? Math.abs(updatedTx.amount) : -Math.abs(updatedTx.amount);
+      newAsset.value = Math.max(0, newAsset.value + newNet);
     }
 
     // Recompute total allocations percentages
     const totalAssetVal = updatedAssets.reduce((acc, a) => acc + a.value, 0);
     const fullyUpdatedAssets = updatedAssets.map(asset => {
       const newAllocation = totalAssetVal > 0 ? Math.round((asset.value / totalAssetVal) * 100) : 0;
-      if (asset.allocationPercent !== newAllocation || (cashAsset && asset.id === cashAsset.id)) {
+      const isModified = (oldAsset && asset.id === oldAsset.id) || (newAsset && asset.id === newAsset.id);
+      if (asset.allocationPercent !== newAllocation || isModified) {
         const updatedAsset = { ...asset, allocationPercent: newAllocation };
         updateAssetInFirestore(userId, updatedAsset).catch(console.error);
         return updatedAsset;
@@ -237,20 +243,20 @@ export default function App() {
       await saveUserSettingToFirestore(userId, user, updatedBudget);
     }
 
-    // Revert Cash Asset value
+    // Revert Target Asset value
     const updatedAssets = [...assets];
-    let cashAsset = updatedAssets.find(a => a.type === "Cash");
-    if (cashAsset) {
+    let targetAsset = updatedAssets.find(a => a.id === txToDelete.accountId);
+    if (targetAsset) {
       const reversedAmount = txToDelete.type === "income" ? -Math.abs(txToDelete.amount) : Math.abs(txToDelete.amount);
-      const newCashValue = Math.max(0, cashAsset.value + reversedAmount);
-      cashAsset.value = newCashValue;
+      const newAssetValue = Math.max(0, targetAsset.value + reversedAmount);
+      targetAsset.value = newAssetValue;
     }
 
     // Recompute total allocations percentages
     const totalAssetVal = updatedAssets.reduce((acc, a) => acc + a.value, 0);
     const fullyUpdatedAssets = updatedAssets.map(asset => {
       const newAllocation = totalAssetVal > 0 ? Math.round((asset.value / totalAssetVal) * 100) : 0;
-      if (asset.allocationPercent !== newAllocation || (cashAsset && asset.id === cashAsset.id)) {
+      if (asset.allocationPercent !== newAllocation || (targetAsset && asset.id === targetAsset.id)) {
         const updatedAsset = { ...asset, allocationPercent: newAllocation };
         updateAssetInFirestore(userId, updatedAsset).catch(console.error);
         return updatedAsset;
@@ -605,6 +611,7 @@ export default function App() {
         onAdd={handleAddTransaction}
         defaultType={addTxDefaultType}
         user={user}
+        assets={assets}
       />
     </div>
   );

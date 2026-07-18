@@ -413,11 +413,11 @@ export default function Portfolio({ user, assets, transactions, onAddAsset, onUp
                   <div className="flex items-center bg-surface-container-lowest border border-gray-200 rounded-xl overflow-hidden focus-within:border-primary transition-colors">
                     <span className="pl-4 font-semibold text-outline text-sm select-none">{user.currency === 'IDR' ? 'Rp' : '$'}</span>
                     <input
-                      type="text"
+                      type="number"
                       required
-                      value={formData.value === 0 || formData.value === undefined ? "" : new Intl.NumberFormat(user.currency === 'IDR' ? 'id-ID' : 'en-US').format(formData.value)}
+                      value={formData.value === undefined ? "" : formData.value}
                       onChange={e => {
-                        const val = parseInt(e.target.value.replace(/\D/g, ''));
+                        const val = parseFloat(e.target.value);
                         setFormData({...formData, value: isNaN(val) ? 0 : val});
                       }}
                       placeholder="0"

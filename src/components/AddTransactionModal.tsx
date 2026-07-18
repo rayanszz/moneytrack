@@ -16,14 +16,15 @@ interface AddTransactionModalProps {
   onAdd: (tx: Omit<Transaction, "id">) => void;
   defaultType?: "income" | "expense";
   user: User;
+  assets: Asset[];
 }
 
-export default function AddTransactionModal({ isOpen, onClose, onAdd, defaultType = "expense", user }: AddTransactionModalProps) {
+export default function AddTransactionModal({ isOpen, onClose, onAdd, defaultType = "expense", user, assets }: AddTransactionModalProps) {
   const [type, setType] = useState<"income" | "expense">(defaultType);
   const [merchant, setMerchant] = useState("");
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState("Chase Visa");
+  const [accountId, setAccountId] = useState("");
   const [notes, setNotes] = useState("");
 
   const [isScanning, setIsScanning] = useState(false);
@@ -54,7 +55,6 @@ export default function AddTransactionModal({ isOpen, onClose, onAdd, defaultTyp
       if (data.merchant) setMerchant(data.merchant);
       if (data.amount) setAmount(data.amount.toString());
       if (data.category) setCategory(data.category);
-      if (data.paymentMethod) setPaymentMethod(data.paymentMethod);
       if (data.items && data.items.length > 0) setNotes("Items:\n" + data.items.join("\n"));
       setType("expense");
     } catch (error: any) {
@@ -70,7 +70,8 @@ export default function AddTransactionModal({ isOpen, onClose, onAdd, defaultTyp
     ? ["Salary", "Investments", "Gifts", "Miscellaneous"]
     : ["Food & Dining", "Rent", "Travel", "Shopping", "Utilities", "Miscellaneous"];
 
-  const paymentMethods = ["Chase Visa", "Amex Platinum", "Checking Acct", "Cash"];
+  // Available accounts are assets that can act as funds (Cash, Bank, Crypto, etc). We'll allow all for simplicity.
+  const accountOptions = assets;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,7 +83,8 @@ export default function AddTransactionModal({ isOpen, onClose, onAdd, defaultTyp
       category,
       date: new Date().toISOString().split("T")[0],
       time: new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }),
-      paymentMethod,
+      paymentMethod: accountOptions.find(a => a.id === accountId)?.name || "Cash",
+      accountId,
       type,
       notes: notes.trim() || undefined
     });
@@ -91,7 +93,7 @@ export default function AddTransactionModal({ isOpen, onClose, onAdd, defaultTyp
     setMerchant("");
     setAmount("");
     setCategory("");
-    setPaymentMethod("Chase Visa");
+    setAccountId("");
     setNotes("");
     onClose();
   };
@@ -193,14 +195,11 @@ export default function AddTransactionModal({ isOpen, onClose, onAdd, defaultTyp
                 <div className="flex items-center bg-[#F3F4F6] rounded-xl focus-within:ring-2 focus-within:ring-primary focus-within:bg-white transition-all overflow-hidden">
                   <span className="pl-4 font-bold text-outline select-none">{user.currency === 'IDR' ? 'Rp' : '$'}</span>
                   <input 
-                    type="text"
+                    type="number"
                     required
                     placeholder="0"
-                    value={amount === "" || amount === "0" ? "" : new Intl.NumberFormat(user.currency === 'IDR' ? 'id-ID' : 'en-US').format(Number(amount))}
-                    onChange={(e) => {
-                      const val = parseInt(e.target.value.replace(/\D/g, ''));
-                      setAmount(isNaN(val) ? "" : val.toString());
-                    }}
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
                     className="w-full bg-transparent px-3 py-2.5 border-none focus:outline-none text-sm font-bold tracking-tight"
                   />
                 </div>
@@ -223,17 +222,18 @@ export default function AddTransactionModal({ isOpen, onClose, onAdd, defaultTyp
                   </select>
                 </div>
 
-                {/* Payment Method */}
+                {/* Account / Asset */}
                 <div>
-                  <label className="text-xs font-bold text-outline uppercase tracking-wider mb-1 block ml-0.5">{t(user.language, "paymentMethod")}</label>
+                  <label className="text-xs font-bold text-outline uppercase tracking-wider mb-1 block ml-0.5">{user.language === "Indonesia" ? "Akun Sumber/Tujuan" : "Account"}</label>
                   <select
                     required
-                    value={paymentMethod}
-                    onChange={(e) => setPaymentMethod(e.target.value)}
+                    value={accountId}
+                    onChange={(e) => setAccountId(e.target.value)}
                     className="w-full bg-[#F3F4F6] text-on-surface rounded-xl px-3 py-2.5 border-none focus:ring-2 focus:ring-primary focus:bg-white focus:outline-none transition-all text-xs font-bold"
                   >
-                    {paymentMethods.map(pm => (
-                      <option key={pm} value={pm}>{pm}</option>
+                    <option value="" disabled>Choose...</option>
+                    {accountOptions.map(ast => (
+                      <option key={ast.id} value={ast.id}>{ast.name}</option>
                     ))}
                   </select>
                 </div>
